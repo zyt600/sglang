@@ -32,23 +32,30 @@ logger = logging.getLogger(__name__)
 
 
 class LayerDoneCounter:
-    def __init__(self, num_layers):
-        self.counter = num_layers
+    def __init__(self, num_layers, num_counters=2):
+        self.num_layers = num_layers
+        self.counters = [num_layers] * num_counters
         self.condition = threading.Condition()
+        self.producer_pointer = 0
+        self.consumer_pointer = 0
 
     def increment(self):
         with self.condition:
-            self.counter += 1
+            self.counters[self.producer_pointer] += 1
             self.condition.notify_all()
+            if self.counters[self.producer_pointer] == self.num_layers:
+                self.producer_pointer = (self.producer_pointer + 1) % len(self.counters)
 
     def wait_until(self, threshold):
         with self.condition:
-            while self.counter <= threshold:
+            while self.counters[self.consumer_pointer] <= threshold:
                 self.condition.wait()
+            if self.counters[self.consumer_pointer] == self.num_layers:
+                self.consumer_pointer = (self.consumer_pointer + 1) % len(self.counters)
 
     def reset(self):
         with self.condition:
-            self.counter = 0
+            self.counters[self.producer_pointer] = 0
 
 
 class CacheOperation:
