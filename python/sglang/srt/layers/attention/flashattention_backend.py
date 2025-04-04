@@ -578,12 +578,12 @@ class FlashAttentionBackend(AttentionBackend):
         device = seq_lens.device
         seq_lens = seq_lens[:bs]
         req_pool_indices = req_pool_indices[:bs]
-        seq_lens_cpu = seq_lens_cpu[:bs]
+        # seq_lens_cpu = seq_lens_cpu[:bs]
         if forward_mode.is_decode():
             metadata = self.decode_cuda_graph_metadata[bs]
             if spec_info is not None:
                 # Draft Decode
-                max_len = seq_lens_cpu.max().item()
+                max_len = seq_lens.max().item()
                 metadata.max_seq_len_k = max_len + (self.step_id + 1)
                 seq_lens_with_decode = seq_lens + (self.step_id + 1)
                 metadata.cache_seqlens_int32 = seq_lens_with_decode.to(torch.int32)
