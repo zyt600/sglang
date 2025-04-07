@@ -44,8 +44,6 @@ class LayerDoneCounter:
         with self.condition:
             self.counters[self.producer_pointer] += 1
             self.condition.notify_all()
-            if self.counters[self.producer_pointer] == self.num_layers:
-                self.producer_pointer = (self.producer_pointer + 1) % len(self.counters)
 
     def wait_until(self, threshold):
         with self.condition:
@@ -54,9 +52,11 @@ class LayerDoneCounter:
             if self.counters[self.consumer_pointer] == self.num_layers:
                 self.consumer_pointer = (self.consumer_pointer + 1) % len(self.counters)
 
-    def reset(self):
+    def reset(self, loading=False):
         with self.condition:
-            self.counters[self.producer_pointer] = 0
+            self.producer_pointer = (self.producer_pointer + 1) % len(self.counters)
+            if loading:
+                self.counters[self.producer_pointer] = 0
 
     def clear(self):
         with self.condition:
@@ -362,9 +362,10 @@ class HiCacheController:
                     else:
                         batch_operation.merge(op)
                 if batch_operation is None:
+                    self.layer_done_counter.reset()
                     continue
 
-                self.layer_done_counter.reset()
+                self.layer_done_counter.reset(loading=True)
                 host_indices_device = batch_operation.host_indices.to(
                     self.mem_pool_device.device
                 )
