@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 
 
 class LayerDoneCounter:
-    def __init__(self, num_layers, num_counters=2):
+    def __init__(self, num_layers, num_counters=8):
         self.num_layers = num_layers
+        # a ring buffer of counters
         self.counters = [num_layers] * num_counters
         self.condition = threading.Condition()
         self.producer_pointer = 0
@@ -56,6 +57,13 @@ class LayerDoneCounter:
     def reset(self):
         with self.condition:
             self.counters[self.producer_pointer] = 0
+
+    def clear(self):
+        with self.condition:
+            self.counters = [self.num_layers] * len(self.counters)
+            self.producer_pointer = 0
+            self.consumer_pointer = 0
+            self.condition.notify_all()
 
 
 class CacheOperation:
@@ -228,6 +236,9 @@ class HiCacheController:
         self.stop_event.clear()
         self.write_thread.start()
         self.load_thread.start()
+
+        self.load_cache_event.clear()
+        self.layer_done_counter.clear()
 
     def write(
         self,
