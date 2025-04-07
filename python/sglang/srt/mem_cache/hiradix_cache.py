@@ -29,6 +29,7 @@ class HiRadixCache(RadixCache):
         tp_cache_group: torch.distributed.ProcessGroup,
         page_size: int,
         hicache_ratio: float,
+        hicache_write_policy: str,
         hicache_oracle: bool = False,
     ):
         if hicache_oracle:
@@ -59,6 +60,7 @@ class HiRadixCache(RadixCache):
             self.token_to_kv_pool_host,
             page_size,
             load_cache_event=self.load_cache_event,
+            write_policy=hicache_write_policy,
             oracle=hicache_oracle,
         )
 
@@ -67,7 +69,9 @@ class HiRadixCache(RadixCache):
         # record the node segments with ongoing load back
         self.ongoing_load_back = {}
         # todo: dynamically adjust the threshold
-        self.write_through_threshold = 1
+        self.write_through_threshold = (
+            1 if hicache_write_policy == "write_through" else 2
+        )
         self.load_back_threshold = 10
         super().__init__(
             req_to_token_pool, token_to_kv_pool_allocator, page_size, disable=False
@@ -113,10 +117,10 @@ class HiRadixCache(RadixCache):
         return len(host_indices)
 
     def inc_hit_count(self, node: TreeNode):
-        if self.cache_controller.write_policy != "write_through_selective":
+        if node.backuped or self.cache_controller.write_policy == "write_back":
             return
         node.hit_count += 1
-        if node.host_value is None and node.hit_count > self.write_through_threshold:
+        if node.hit_count >= self.write_through_threshold:
             self.write_backup(node)
             node.hit_count = 0
 
@@ -169,13 +173,8 @@ class HiRadixCache(RadixCache):
             if x.host_value is None:
                 if self.cache_controller.write_policy == "write_back":
                     num_evicted += self.write_backup(x)
-                elif self.cache_controller.write_policy == "write_through_selective":
-                    num_evicted += self._evict_write_through_selective(x)
                 else:
-                    assert (
-                        self.cache_controller.write_policy != "write_through"
-                    ), "write_through should be inclusive"
-                    raise NotImplementedError
+                    num_evicted += self._evict_write_through_selective(x)
             else:
                 num_evicted += self._evict_write_through(x)
 
@@ -441,8 +440,8 @@ class HiRadixCache(RadixCache):
             node.children[child_key] = new_node
             self.evictable_size_ += len(value)
 
-            if self.cache_controller.write_policy == "write_through":
-                self.write_backup(new_node)
+            if self.cache_controller.write_policy != "write_back":
+                self.inc_hit_count(new_node)
         return total_prefix_length
 
     def _collect_leaves_device(self):

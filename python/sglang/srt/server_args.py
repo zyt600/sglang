@@ -179,6 +179,7 @@ class ServerArgs:
     tool_call_parser: Optional[str] = None
     enable_hierarchical_cache: bool = False
     hicache_ratio: float = 4.0
+    hicache_write_policy: str = "write_through_selective"
     hicache_oracle: bool = False
     enable_flashinfer_mla: bool = False
     enable_flashmla: bool = False
@@ -1089,6 +1090,13 @@ class ServerArgs:
             required=False,
             default=ServerArgs.hicache_ratio,
             help="The ratio of the size of host KV cache memory pool to the size of device pool.",
+        )
+        parser.add_argument(
+            "--hicache-write-policy",
+            type=str,
+            choices=["write_back", "write_through", "write_through_selective"],
+            default=ServerArgs.hicache_write_policy,
+            help="The write policy of hierarchical cache.",
         )
         parser.add_argument(
             "--hicache-oracle",

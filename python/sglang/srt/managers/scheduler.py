@@ -186,6 +186,7 @@ class Scheduler(
         )
         self.gpu_id = gpu_id
         self.enable_hierarchical_cache = server_args.enable_hierarchical_cache
+        self.hicache_write_policy = server_args.hicache_write_policy
         self.hicache_oracle = server_args.hicache_oracle
         self.page_size = server_args.page_size
 
@@ -475,6 +476,7 @@ class Scheduler(
                     tp_cache_group=self.tp_worker.get_tp_cpu_group(),
                     page_size=self.page_size,
                     hicache_ratio=server_args.hicache_ratio,
+                    hicache_write_policy=self.hicache_write_policy,
                     hicache_oracle=self.hicache_oracle,
                 )
             else:
