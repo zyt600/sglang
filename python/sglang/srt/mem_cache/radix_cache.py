@@ -182,7 +182,7 @@ class RadixCache(BasePrefixCache):
         token_ids = (req.origin_input_ids + req.output_ids)[:-1]
         kv_indices = self.req_to_token_pool.req_to_token[
             req.req_pool_idx, : len(token_ids)
-        ]
+        ].to(torch.int64)
 
         if self.page_size != 1:
             page_aligned_len = len(kv_indices) // self.page_size * self.page_size
