@@ -32,38 +32,23 @@ logger = logging.getLogger(__name__)
 
 
 class LayerDoneCounter:
-    def __init__(self, num_layers, num_counters=8):
-        self.num_layers = num_layers
-        # a ring buffer of counters
-        self.counters = [num_layers] * num_counters
+    def __init__(self, num_layers):
+        self.counter = num_layers
         self.condition = threading.Condition()
-        self.producer_pointer = 0
-        self.consumer_pointer = 0
 
     def increment(self):
         with self.condition:
-            self.counters[self.producer_pointer] += 1
+            self.counter += 1
             self.condition.notify_all()
 
     def wait_until(self, threshold):
         with self.condition:
-            while self.counters[self.consumer_pointer] <= threshold:
+            while self.counter <= threshold:
                 self.condition.wait()
-            if self.counters[self.consumer_pointer] == self.num_layers:
-                self.consumer_pointer = (self.consumer_pointer + 1) % len(self.counters)
 
-    def reset(self, loading=False):
+    def reset(self):
         with self.condition:
-            self.producer_pointer = (self.producer_pointer + 1) % len(self.counters)
-            if loading:
-                self.counters[self.producer_pointer] = 0
-
-    def clear(self):
-        with self.condition:
-            self.counters = [self.num_layers] * len(self.counters)
-            self.producer_pointer = 0
-            self.consumer_pointer = 0
-            self.condition.notify_all()
+            self.counter = 0
 
 
 class CacheOperation:
@@ -237,9 +222,6 @@ class HiCacheController:
         self.write_thread.start()
         self.load_thread.start()
 
-        self.load_cache_event.clear()
-        self.layer_done_counter.clear()
-
     def write(
         self,
         device_indices: torch.Tensor,
@@ -362,10 +344,9 @@ class HiCacheController:
                     else:
                         batch_operation.merge(op)
                 if batch_operation is None:
-                    self.layer_done_counter.reset()
                     continue
 
-                self.layer_done_counter.reset(loading=True)
+                self.layer_done_counter.reset()
                 host_indices_device = batch_operation.host_indices.to(
                     self.mem_pool_device.device
                 )

@@ -149,7 +149,7 @@ class TpModelWorkerClient:
             resolve_future_token_ids(input_ids, self.future_token_ids_map)
 
             # overlap the data loading and forwarding
-            # self.ready_to_load_cache()
+            self.ready_to_load_cache()
             # Run forward
             logits_output, next_token_ids = self.worker.forward_batch_generation(
                 model_worker_batch, self.launch_done
