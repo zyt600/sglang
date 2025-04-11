@@ -271,7 +271,7 @@ class HiCacheController:
                     if not self.oracle:
                         if self.page_size == 1:
                             if isinstance(self.mem_pool_host, MHATokenToKVPoolHost):
-                                self.mem_pool_host.transfer_all_layer_kernel(
+                                self.mem_pool_host.transfer_all_layers(
                                     self.mem_pool_device,
                                     operation.device_indices,
                                     operation.host_indices.to(

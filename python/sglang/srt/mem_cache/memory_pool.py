@@ -834,6 +834,18 @@ class MHATokenToKVPoolHost(HostKVCache):
     def get_value_buffer(self, layer_id):
         return self.kv_buffer[1, layer_id]
 
+    def transfer_all_layers(self, device_pool, device_indices, host_indices):
+        for i in range(self.layer_num):
+            transfer_kv_per_layer(
+                device_pool.k_buffer[i],
+                self.kv_buffer[0, i],
+                device_pool.v_buffer[i],
+                self.kv_buffer[1, i],
+                device_indices,
+                host_indices,
+                self.head_num * self.head_dim,
+            )
+
     def transfer_all_layer_kernel(self, device_pool, src_indices, dst_indices):
         transfer_kv_all_layer(
             device_pool.k_buffer,
