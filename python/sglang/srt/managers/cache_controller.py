@@ -235,6 +235,7 @@ class HiCacheController:
         if host_indices is None:
             return None
         self.mem_pool_host.protect_write(host_indices)
+        torch.cuda.current_stream().synchronize()
         self.write_queue.put(
             CacheOperation(host_indices, device_indices, node_id, priority)
         )
@@ -253,6 +254,7 @@ class HiCacheController:
         if device_indices is None:
             return None
         self.mem_pool_host.protect_load(host_indices)
+        torch.cuda.current_stream().synchronize()
         self.load_queue.put(
             CacheOperation(host_indices, device_indices, node_id, priority)
         )

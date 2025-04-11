@@ -170,9 +170,8 @@ class TokenToKVPoolAllocator:
             return None
 
         select_index = self.free_slots[:need_size]
-        # ensure select_index is ready before returning
-        torch.cuda.current_stream().synchronize()
         self.free_slots = self.free_slots[need_size:]
+
         return select_index
 
     def free(self, free_index: torch.Tensor):
