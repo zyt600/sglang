@@ -29,16 +29,16 @@ class HiRadixCache(RadixCache):
         tp_cache_group: torch.distributed.ProcessGroup,
         page_size: int,
         hicache_ratio: float,
+        hicache_size: int,
         hicache_write_policy: str,
         hicache_oracle: bool = False,
     ):
-        if hicache_oracle:
-            hicache_ratio += 1.0
         self.kv_cache = token_to_kv_pool_allocator.get_kvcache()
         if isinstance(self.kv_cache, MHATokenToKVPool):
             self.token_to_kv_pool_host = MHATokenToKVPoolHost(
                 self.kv_cache,
                 hicache_ratio,
+                hicache_size,
                 page_size,
                 pin_memory=False if hicache_oracle else True,
             )
@@ -46,6 +46,7 @@ class HiRadixCache(RadixCache):
             self.token_to_kv_pool_host = MLATokenToKVPoolHost(
                 self.kv_cache,
                 hicache_ratio,
+                hicache_size,
                 page_size,
                 pin_memory=False if hicache_oracle else True,
             )

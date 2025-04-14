@@ -476,6 +476,7 @@ class Scheduler(
                     tp_cache_group=self.tp_worker.get_tp_cpu_group(),
                     page_size=self.page_size,
                     hicache_ratio=server_args.hicache_ratio,
+                    hicache_size=server_args.hicache_size,
                     hicache_write_policy=self.hicache_write_policy,
                     hicache_oracle=self.hicache_oracle,
                 )
