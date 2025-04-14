@@ -28,6 +28,7 @@ from http import HTTPStatus
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple, Union
 
+import group_requests_ext
 import psutil
 import setproctitle
 import torch
@@ -1227,6 +1228,10 @@ class Scheduler(
             self.tree_cache.writing_check()
             self.tree_cache.loading_check()
 
+        request_groups = group_requests_ext.group_requests(
+            [req.origin_input_ids for req in self.waiting_queue]
+        )
+
         # Get priority queue
         prefix_computed = self.policy.calc_priority(self.waiting_queue)
 
@@ -1249,7 +1254,7 @@ class Scheduler(
             lora_set = set([req.lora_path for req in self.running_batch.reqs])
 
         # Get requests from the waiting queue to a new prefill batch
-        for req in self.waiting_queue:
+        def process_req(req: Req, prefix_computed: bool = False) -> bool:
             if (
                 self.lora_paths
                 and len(
@@ -1260,11 +1265,11 @@ class Scheduler(
                 > self.max_loras_per_batch
             ):
                 self.running_batch.batch_is_full = True
-                break
+                return False
 
             if running_bs + len(adder.can_run_list) >= self.max_running_requests:
                 self.running_batch.batch_is_full = True
-                break
+                return False
 
             if prefix_computed:
                 # recompute prefix if last node reference is dangling
@@ -1293,7 +1298,22 @@ class Scheduler(
                         )
                     else:
                         self.running_batch.batch_is_full = True
-                break
+                return False
+            return True
+
+        for group in request_groups:
+            if len(group) > 1:
+                req = self.waiting_queue[group[0]]
+                if not process_req(req):
+                    # not enough memory to process requests
+                    break
+                # todo, fix adhoc threshold
+                if len(req.prefix_indices) < 100:
+                    continue
+                group = group[1:]
+            for i in group:
+                if not process_req(self.waiting_queue[i]):
+                    break
 
         # Update waiting queue
         can_run_list: List[Req] = adder.can_run_list
