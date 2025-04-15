@@ -1304,7 +1304,7 @@ class Scheduler(
         for group in request_groups:
             if len(group) > 1:
                 req = self.waiting_queue[group[0]]
-                if not process_req(req):
+                if not process_req(req, prefix_computed):
                     # not enough memory to process requests
                     break
                 # todo, fix adhoc threshold
@@ -1312,7 +1312,7 @@ class Scheduler(
                     continue
                 group = group[1:]
             for i in group:
-                if not process_req(self.waiting_queue[i]):
+                if not process_req(self.waiting_queue[i], prefix_computed):
                     break
 
         # Update waiting queue
