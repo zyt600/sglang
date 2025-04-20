@@ -142,19 +142,18 @@ async def async_request_sglang_generate(
                         else:
                             data = json.loads(chunk)
 
-                            if data["text"]:
-                                timestamp = time.perf_counter()
-                                # First token
-                                if ttft == 0.0:
-                                    ttft = time.perf_counter() - st
-                                    output.ttft = ttft
+                            timestamp = time.perf_counter()
+                            # First token
+                            if ttft == 0.0:
+                                ttft = time.perf_counter() - st
+                                output.ttft = ttft
 
-                                # Decoding phase
-                                else:
-                                    output.itl.append(timestamp - most_recent_timestamp)
+                            # Decoding phase
+                            else:
+                                output.itl.append(timestamp - most_recent_timestamp)
 
-                                most_recent_timestamp = timestamp
-                                generated_text = data["text"]
+                            most_recent_timestamp = timestamp
+                            generated_text = data["text"]
 
                     output.generated_text = generated_text
                     output.success = True
