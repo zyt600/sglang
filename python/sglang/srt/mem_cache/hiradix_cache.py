@@ -71,7 +71,7 @@ class HiRadixCache(RadixCache):
         self.ongoing_load_back = {}
         # todo: dynamically adjust the threshold
         self.write_through_threshold = (
-            1 if hicache_write_policy == "write_through" else 2
+            1 if hicache_write_policy == "write_through" else 3
         )
         self.load_back_threshold = 10
         super().__init__(
