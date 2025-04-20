@@ -22,11 +22,7 @@ from typing import List, Optional
 
 import torch
 
-from sglang.srt.mem_cache.memory_pool import (
-    HostKVCache,
-    MHATokenToKVPoolHost,
-    TokenToKVPoolAllocator,
-)
+from sglang.srt.mem_cache.memory_pool import HostKVCache, TokenToKVPoolAllocator
 
 logger = logging.getLogger(__name__)
 
@@ -270,22 +266,12 @@ class HiCacheController:
                     operation = self.write_queue.get(block=True, timeout=1)
                     if not self.oracle:
                         if self.page_size == 1:
-                            if isinstance(self.mem_pool_host, MHATokenToKVPoolHost):
-                                self.mem_pool_host.transfer_all_layers(
-                                    self.mem_pool_device,
-                                    operation.device_indices,
-                                    operation.host_indices.to(
-                                        self.mem_pool_device.device
-                                    ),
-                                )
-                                self.write_stream.synchronize()
-                            else:
-                                operation.data = self.mem_pool_device.get_flat_data(
-                                    operation.device_indices
-                                )
-                                self.mem_pool_host.assign_flat_data(
-                                    operation.host_indices, operation.data
-                                )
+                            self.mem_pool_host.transfer_all_layer_kernel(
+                                self.mem_pool_device,
+                                operation.device_indices,
+                                operation.host_indices.to(self.mem_pool_device.device),
+                            )
+                            self.write_stream.synchronize()
                         else:
                             self.mem_pool_host.write_page_all_layers(
                                 operation.host_indices,
@@ -355,21 +341,13 @@ class HiCacheController:
                 for i in range(self.mem_pool_host.layer_num):
                     if not self.oracle:
                         if self.page_size == 1:
-                            if isinstance(self.mem_pool_host, MHATokenToKVPoolHost):
-                                self.mem_pool_device.transfer_per_layer_kernel(
-                                    self.mem_pool_host,
-                                    host_indices_device,
-                                    batch_operation.device_indices,
-                                    i,
-                                )
-                                self.load_stream.synchronize()
-                            else:
-                                flat_data = self.mem_pool_host.get_flat_data_by_layer(
-                                    batch_operation.host_indices, i
-                                )
-                                self.mem_pool_device.transfer_per_layer(
-                                    batch_operation.device_indices, flat_data, i
-                                )
+                            self.mem_pool_device.transfer_per_layer_kernel(
+                                self.mem_pool_host,
+                                host_indices_device,
+                                batch_operation.device_indices,
+                                i,
+                            )
+                            self.load_stream.synchronize()
                         else:
                             self.mem_pool_host.load_page_per_layer(
                                 batch_operation.host_indices,

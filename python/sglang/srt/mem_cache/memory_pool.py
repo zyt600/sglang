@@ -36,9 +36,13 @@ import psutil
 import torch
 from sgl_kernel.kvcacheio import (
     transfer_kv_all_layer,
+    transfer_kv_all_layer_mla,
     transfer_kv_per_layer,
-    transfer_kv_to_cpu_all_layer_naive,
-    transfer_kv_to_gpu_per_layer_naive,
+    transfer_kv_per_layer_mla,
+    transfer_kv_to_cpu_all_layer_direct,
+    transfer_kv_to_cpu_all_layer_direct_mla,
+    transfer_kv_to_gpu_per_layer_direct,
+    transfer_kv_to_gpu_per_layer_direct_mla,
 )
 
 from sglang.srt.layers.radix_attention import RadixAttention
@@ -440,6 +444,7 @@ class MLATokenToKVPool(KVCache):
         enable_memory_saver: bool,
     ):
         self.size = size
+        self.page_size = page_size
         self.dtype = dtype
         self.device = device
         if dtype in (torch.float8_e5m2, torch.float8_e4m3fn):
@@ -457,14 +462,11 @@ class MLATokenToKVPool(KVCache):
 
         with memory_saver_adapter.region():
             # The padded slot 0 is used for writing dummy outputs from padded tokens.
-            self.kv_buffer = [
-                torch.zeros(
-                    (size + page_size, 1, kv_lora_rank + qk_rope_head_dim),
-                    dtype=self.store_dtype,
-                    device=device,
-                )
-                for _ in range(layer_num)
-            ]
+            self.kv_buffer = torch.zeros(
+                (layer_num, size + page_size, 1, kv_lora_rank + qk_rope_head_dim),
+                dtype=self.store_dtype,
+                device=device,
+            )
 
         self.layer_transfer_counter = None
 
@@ -517,6 +519,17 @@ class MLATokenToKVPool(KVCache):
         # transfer prepared data from host to device
         flat_data = flat_data.to(device=self.device, non_blocking=False)
         self.kv_buffer[layer_id][indices] = flat_data
+
+    def transfer_per_layer_kernel(
+        self, host_pool, host_indices, device_indices, layer_id
+    ):
+        transfer_kv_per_layer_mla(
+            host_pool.get_key_buffer(layer_id),
+            self.kv_buffer[layer_id],
+            host_indices,
+            device_indices,
+            self.kv_lora_rank + self.qk_rope_head_dim,
+        )
 
 
 class DoubleSparseTokenToKVPool(KVCache):
@@ -837,19 +850,8 @@ class MHATokenToKVPoolHost(HostKVCache):
     def get_value_buffer(self, layer_id):
         return self.kv_buffer[1, layer_id]
 
-    def transfer_all_layers(self, device_pool, device_indices, host_indices):
-        for i in range(self.layer_num):
-            transfer_kv_per_layer(
-                device_pool.k_buffer[i],
-                self.kv_buffer[0, i],
-                device_pool.v_buffer[i],
-                self.kv_buffer[1, i],
-                device_indices,
-                host_indices,
-                self.head_num * self.head_dim,
-            )
-
     def transfer_all_layer_kernel(self, device_pool, src_indices, dst_indices):
+        item_size = self.head_num * self.head_dim
         transfer_kv_all_layer(
             device_pool.k_buffer,
             self.kv_buffer[0],
@@ -857,10 +859,10 @@ class MHATokenToKVPoolHost(HostKVCache):
             self.kv_buffer[1],
             src_indices,
             dst_indices,
-            self.head_num * self.head_dim,
+            item_size,
             self.layer_num,
-            self.head_num * self.head_dim * (device_pool.size + device_pool.page_size),
-            self.head_num * self.head_dim * self.size,
+            item_size * (device_pool.size + device_pool.page_size),
+            item_size * self.size,
         )
 
     @debug_timing
@@ -880,27 +882,27 @@ class MHATokenToKVPoolHost(HostKVCache):
         self.kv_buffer[:, :, indices] = flat_data
 
     def write_page_all_layers(self, host_indices, device_indices, device_pool):
-        transfer_kv_to_cpu_all_layer_naive(
-            host_indices=host_indices,
-            host_k_buffer=self.kv_buffer[0],
-            host_v_buffer=self.kv_buffer[1],
-            device_indices=device_indices,
-            device_k_buffer=device_pool.k_buffer,
-            device_v_buffer=device_pool.v_buffer,
-            page_size=self.page_size,
-            layer_num=self.layer_num,
+        transfer_kv_to_cpu_all_layer_direct(
+            host_indices,
+            self.kv_buffer[0],
+            self.kv_buffer[1],
+            device_indices,
+            device_pool.k_buffer,
+            device_pool.v_buffer,
+            self.page_size,
+            self.layer_num,
         )
 
     def load_page_per_layer(self, host_indices, device_indices, device_pool, layer_id):
-        transfer_kv_to_gpu_per_layer_naive(
-            host_indices=host_indices,
-            host_k_buffer=self.kv_buffer[0],
-            host_v_buffer=self.kv_buffer[1],
-            device_indices=device_indices,
-            device_k_buffer=device_pool.k_buffer,
-            device_v_buffer=device_pool.v_buffer,
-            page_size=self.page_size,
-            layer_id=layer_id,
+        transfer_kv_to_gpu_per_layer_direct(
+            host_indices,
+            self.kv_buffer[0],
+            self.kv_buffer[1],
+            device_indices,
+            device_pool.k_buffer,
+            device_pool.v_buffer,
+            self.page_size,
+            layer_id,
         )
 
 
@@ -923,8 +925,12 @@ class MLATokenToKVPoolHost(HostKVCache):
         self.qk_rope_head_dim = self.device_pool.qk_rope_head_dim
         self.layer_num = self.device_pool.layer_num
         self.dtype = self.device_pool.store_dtype
-
-        return (self.kv_lora_rank + self.qk_rope_head_dim) * 1 * self.dtype.itemsize
+        return (
+            (self.kv_lora_rank + self.qk_rope_head_dim)
+            * 1
+            * self.dtype.itemsize
+            * self.layer_num
+        )
 
     def init_kv_buffer(self):
         return torch.empty(
@@ -956,22 +962,33 @@ class MLATokenToKVPoolHost(HostKVCache):
         self.kv_buffer[:, indices] = flat_data
 
     def write_page_all_layers(self, host_indices, device_indices, device_pool):
-        device_indices_cpu = device_indices[:: self.page_size].cpu()
-        for i in range(len(device_indices_cpu)):
-            h_index = host_indices[i * self.page_size]
-            d_index = device_indices_cpu[i]
-            for j in range(self.layer_num):
-                self.kv_buffer[j, h_index : h_index + self.page_size].copy_(
-                    device_pool.kv_buffer[j][d_index : d_index + self.page_size],
-                    non_blocking=True,
-                )
+        transfer_kv_to_cpu_all_layer_direct_mla(
+            host_indices,
+            self.kv_buffer,
+            device_indices,
+            device_pool.kv_buffer,
+            self.page_size,
+            self.layer_num,
+        )
 
     def load_page_per_layer(self, host_indices, device_indices, device_pool, layer_id):
-        device_indices_cpu = device_indices[:: self.page_size].cpu()
-        for i in range(len(device_indices_cpu)):
-            h_index = host_indices[i * self.page_size]
-            d_index = device_indices_cpu[i]
-            device_pool.kv_buffer[layer_id][d_index : d_index + self.page_size].copy_(
-                self.kv_buffer[layer_id, h_index : h_index + self.page_size],
-                non_blocking=True,
-            )
+        transfer_kv_to_gpu_per_layer_direct_mla(
+            host_indices,
+            self.kv_buffer[layer_id],
+            device_indices,
+            device_pool.kv_buffer[layer_id],
+            self.page_size,
+        )
+
+    def transfer_all_layer_kernel(self, device_pool, src_indices, dst_indices):
+        item_size = self.kv_lora_rank + self.qk_rope_head_dim
+        transfer_kv_all_layer_mla(
+            device_pool.kv_buffer,
+            self.kv_buffer,
+            src_indices,
+            dst_indices,
+            item_size,
+            self.layer_num,
+            item_size * (device_pool.size + device_pool.page_size),
+            item_size * self.size,
+        )

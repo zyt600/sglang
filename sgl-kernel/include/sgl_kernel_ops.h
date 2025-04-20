@@ -262,7 +262,8 @@ void transfer_kv_per_layer(
     const at::Tensor src_indices,
     const at::Tensor dst_indices,
     int64_t item_size,
-    int64_t block_quota);
+    int64_t block_quota,
+    int64_t num_warps_per_block);
 
 void transfer_kv_all_layer(
     const at::Tensor src_k,
@@ -275,9 +276,31 @@ void transfer_kv_all_layer(
     int64_t num_layers,
     int64_t src_layer_offset,
     int64_t dst_layer_offset,
-    int64_t block_quota);
+    int64_t block_quota,
+    int64_t num_warps_per_block);
 
-void transfer_kv_to_cpu_all_layer_naive(
+void transfer_kv_per_layer_mla(
+    const at::Tensor src,
+    at::Tensor dst,
+    const at::Tensor src_indices,
+    const at::Tensor dst_indices,
+    int64_t item_size,
+    int64_t block_quota,
+    int64_t num_warps_per_block);
+
+void transfer_kv_all_layer_mla(
+    const at::Tensor src,
+    at::Tensor dst,
+    const at::Tensor src_indices,
+    const at::Tensor dst_indices,
+    int64_t item_size,
+    int64_t num_layers,
+    int64_t src_layer_offset,
+    int64_t dst_layer_offset,
+    int64_t block_quota,
+    int64_t num_warps_per_block);
+
+void transfer_kv_to_cpu_all_layer_direct(
     at::Tensor host_indices,
     at::Tensor host_k_buffer,
     at::Tensor host_v_buffer,
@@ -287,7 +310,7 @@ void transfer_kv_to_cpu_all_layer_naive(
     int64_t page_size,
     int64_t layer_num);
 
-void transfer_kv_to_gpu_per_layer_naive(
+void transfer_kv_to_gpu_per_layer_direct(
     at::Tensor host_indices,
     at::Tensor host_k_buffer,
     at::Tensor host_v_buffer,
@@ -297,6 +320,20 @@ void transfer_kv_to_gpu_per_layer_naive(
     int64_t page_size,
     int64_t layer_id);
 
+void transfer_kv_to_cpu_all_layer_direct_mla(
+    at::Tensor host_indices,
+    at::Tensor host_buffer,
+    at::Tensor device_indices,
+    at::Tensor device_buffer,
+    int64_t page_size,
+    int64_t layer_num);
+
+void transfer_kv_to_gpu_per_layer_direct_mla(
+    at::Tensor host_indices,
+    at::Tensor host_buffer,
+    at::Tensor device_indices,
+    at::Tensor device_buffer,
+    int64_t page_size);
 /*
  * From FlashInfer
  */

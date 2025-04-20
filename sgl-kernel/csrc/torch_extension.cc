@@ -175,20 +175,36 @@ TORCH_LIBRARY_EXPAND(sgl_kernel, m) {
    */
   m.def(
       "transfer_kv_per_layer(Tensor src_k, Tensor dst_k, Tensor src_v, Tensor dst_v, Tensor src_indices, Tensor "
-      "dst_indices, int item_size, int block_quota) -> ()");
+      "dst_indices, int item_size, int block_quota, int num_warps_per_block) -> ()");
   m.impl("transfer_kv_per_layer", torch::kCUDA, &transfer_kv_per_layer);
   m.def(
       "transfer_kv_all_layer(Tensor src_k, Tensor dst_k, Tensor src_v, Tensor dst_v, Tensor src_indices, Tensor "
-      "dst_indices, int item_size, int num_layers, int src_layer_offset, int dst_layer_offset, int block_quota) -> ()");
+      "dst_indices, int item_size, int num_layers, int src_layer_offset, int dst_layer_offset, int block_quota, int "
+      "num_warps_per_block) -> ()");
   m.impl("transfer_kv_all_layer", torch::kCUDA, &transfer_kv_all_layer);
   m.def(
-      "transfer_kv_to_cpu_all_layer_naive(Tensor host_indices, Tensor host_k_buffer, Tensor host_v_buffer, "
-      "Tensor device_indices, Tensor device_k_buffer, Tensor device_v_buffer, int page_size, int layer_num) -> ()");
-  m.impl("transfer_kv_to_cpu_all_layer_naive", torch::kCUDA, &transfer_kv_to_cpu_all_layer_naive);
+      "transfer_kv_per_layer_mla(Tensor src, Tensor dst, Tensor src_indices, Tensor dst_indices, int item_size, int "
+      "block_quota, int num_warps_per_block) -> ()");
+  m.impl("transfer_kv_per_layer_mla", torch::kCUDA, &transfer_kv_per_layer_mla);
   m.def(
-      "transfer_kv_to_gpu_per_layer_naive(Tensor host_indices, Tensor host_k_buffer, Tensor host_v_buffer, "
+      "transfer_kv_all_layer_mla(Tensor src, Tensor dst, Tensor src_indices, Tensor dst_indices, int item_size, int "
+      "num_layers, int src_layer_offset, int dst_layer_offset, int block_quota, int num_warps_per_block) -> ()");
+  m.impl("transfer_kv_all_layer_mla", torch::kCUDA, &transfer_kv_all_layer_mla);
+  m.def(
+      "transfer_kv_to_cpu_all_layer_direct(Tensor host_indices, Tensor host_k_buffer, Tensor host_v_buffer, "
+      "Tensor device_indices, Tensor device_k_buffer, Tensor device_v_buffer, int page_size, int layer_num) -> ()");
+  m.impl("transfer_kv_to_cpu_all_layer_direct", torch::kCUDA, &transfer_kv_to_cpu_all_layer_direct);
+  m.def(
+      "transfer_kv_to_gpu_per_layer_direct(Tensor host_indices, Tensor host_k_buffer, Tensor host_v_buffer, "
       "Tensor device_indices, Tensor device_k_buffer, Tensor device_v_buffer, int page_size, int layer_id) -> ()");
-  m.impl("transfer_kv_to_gpu_per_layer_naive", torch::kCUDA, &transfer_kv_to_gpu_per_layer_naive);
+  m.impl("transfer_kv_to_gpu_per_layer_direct", torch::kCUDA, &transfer_kv_to_gpu_per_layer_direct);
+  m.def(
+      "transfer_kv_to_cpu_all_layer_direct_mla(Tensor host_indices, Tensor host_buffer, Tensor device_indices, "
+      "Tensor device_buffer, int page_size, int layer_num) -> ()");
+  m.impl("transfer_kv_to_cpu_all_layer_direct_mla", torch::kCUDA, &transfer_kv_to_cpu_all_layer_direct_mla);
+  m.def(
+      "transfer_kv_to_gpu_per_layer_direct_mla(Tensor host_indices, Tensor host_buffer, Tensor device_indices, "
+      "Tensor device_buffer, int page_size) -> ()");
 
   /*
    * From FlashInfer
