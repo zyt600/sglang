@@ -38,9 +38,13 @@ from sgl_kernel.gemm import (
 )
 from sgl_kernel.kvcacheio import (
     transfer_kv_all_layer,
+    transfer_kv_all_layer_mla,
     transfer_kv_per_layer,
-    transfer_kv_to_cpu_all_layer_naive,
-    transfer_kv_to_gpu_per_layer_naive,
+    transfer_kv_per_layer_mla,
+    transfer_kv_to_cpu_all_layer_direct,
+    transfer_kv_to_cpu_all_layer_direct_mla,
+    transfer_kv_to_gpu_per_layer_direct,
+    transfer_kv_to_gpu_per_layer_direct_mla,
 )
 from sgl_kernel.moe import moe_align_block_size, moe_fused_gate, topk_softmax
 from sgl_kernel.sampling import (
