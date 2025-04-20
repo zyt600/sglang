@@ -653,6 +653,7 @@ class HostKVCache(abc.ABC):
         page_size: int,
     ):
         self.device_pool = device_pool
+        self.dtype = device_pool.store_dtype
         self.pin_memory = pin_memory
         self.device = device
         self.page_size = page_size
@@ -832,7 +833,6 @@ class MHATokenToKVPoolHost(HostKVCache):
         self.head_num = self.device_pool.head_num
         self.head_dim = self.device_pool.head_dim
         self.layer_num = self.device_pool.layer_num
-        self.dtype = self.device_pool.store_dtype
 
         return self.head_dim * self.head_num * self.layer_num * self.dtype.itemsize * 2
 
@@ -924,7 +924,6 @@ class MLATokenToKVPoolHost(HostKVCache):
         self.kv_lora_rank = self.device_pool.kv_lora_rank
         self.qk_rope_head_dim = self.device_pool.qk_rope_head_dim
         self.layer_num = self.device_pool.layer_num
-        self.dtype = self.device_pool.store_dtype
         return (
             (self.kv_lora_rank + self.qk_rope_head_dim)
             * 1

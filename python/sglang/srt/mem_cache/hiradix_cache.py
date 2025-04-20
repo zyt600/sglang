@@ -171,7 +171,7 @@ class HiRadixCache(RadixCache):
             if x.lock_ref > 0:
                 continue
 
-            if x.host_value is None:
+            if not x.backuped:
                 if self.cache_controller.write_policy == "write_back":
                     num_evicted += self.write_backup(x)
                     pending_nodes.append(x)
@@ -389,7 +389,7 @@ class HiRadixCache(RadixCache):
         else:
             new_node.value = child.value[:split_len]
             child.value = child.value[split_len:]
-        if child.host_value is not None:
+        if child.backuped:
             new_node.host_value = child.host_value[:split_len]
             child.host_value = child.host_value[split_len:]
         child.parent = new_node
