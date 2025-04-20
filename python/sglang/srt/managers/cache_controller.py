@@ -157,7 +157,7 @@ class HiCacheController:
         self.mem_pool_device_allocator = token_to_kv_pool_allocator
         self.mem_pool_device = token_to_kv_pool_allocator.get_kvcache()
         self.mem_pool_host = mem_pool_host
-        self.write_policy = write_policy if not oracle else "write_through"
+        self.write_policy = write_policy
         self.oracle = oracle
         self.page_size = page_size
 
@@ -250,6 +250,7 @@ class HiCacheController:
         if device_indices is None:
             return None
         self.mem_pool_host.protect_load(host_indices)
+        # to ensure the device indices are ready before accessed by another CUDA stream
         torch.cuda.current_stream().synchronize()
         self.load_queue.put(
             CacheOperation(host_indices, device_indices, node_id, priority)
