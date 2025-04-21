@@ -37,7 +37,7 @@ def transfer_kv_all_layer(
     src_layer_offset: int,
     dst_layer_offset: int,
     block_quota: int = 4,
-    num_warps_per_block: int = 32,
+    num_warps_per_block: int = 16,
 ):
     torch.ops.sgl_kernel.transfer_kv_all_layer(
         src_k,
@@ -85,7 +85,7 @@ def transfer_kv_all_layer_mla(
     src_layer_offset: int,
     dst_layer_offset: int,
     block_quota: int = 4,
-    num_warps_per_block: int = 32,
+    num_warps_per_block: int = 16,
 ):
     torch.ops.sgl_kernel.transfer_kv_all_layer_mla(
         src,
