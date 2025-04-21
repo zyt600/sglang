@@ -187,7 +187,6 @@ class Scheduler(
         )
         self.gpu_id = gpu_id
         self.enable_hierarchical_cache = server_args.enable_hierarchical_cache
-        self.hicache_write_policy = server_args.hicache_write_policy
         self.hicache_oracle = server_args.hicache_oracle
         self.page_size = server_args.page_size
 
@@ -478,7 +477,7 @@ class Scheduler(
                     page_size=self.page_size,
                     hicache_ratio=server_args.hicache_ratio,
                     hicache_size=server_args.hicache_size,
-                    hicache_write_policy=self.hicache_write_policy,
+                    hicache_write_policy=server_args.hicache_write_policy,
                     hicache_oracle=self.hicache_oracle,
                 )
             else:
@@ -1329,9 +1328,6 @@ class Scheduler(
         if adder.new_chunked_req is not None:
             assert self.chunked_req is None
             self.chunked_req = adder.new_chunked_req
-            if self.enable_metrics:
-                # calibrate cummulative cache hit tokens for chunked requests
-                self.cum_cache_hit_tokens -= len(self.chunked_req.fill_ids)
 
         if self.chunked_req:
             self.chunked_req.is_chunked += 1
