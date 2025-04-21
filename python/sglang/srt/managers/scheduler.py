@@ -1308,9 +1308,6 @@ class Scheduler(
         if adder.new_chunked_req is not None:
             assert self.chunked_req is None
             self.chunked_req = adder.new_chunked_req
-            if self.enable_metrics:
-                # calibrate cummulative cache hit tokens for chunked requests
-                self.cum_cache_hit_tokens -= len(self.chunked_req.fill_ids)
 
         if self.chunked_req:
             self.chunked_req.is_chunked += 1
