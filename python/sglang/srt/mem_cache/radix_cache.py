@@ -70,6 +70,10 @@ class TreeNode:
     def __lt__(self, other: "TreeNode"):
         return self.last_access_time < other.last_access_time
 
+    @classmethod
+    def reset_counter(cls):
+        cls.counter = 0
+
 
 def _key_match_page_size1(key0: List, key1: List):
     i = 0

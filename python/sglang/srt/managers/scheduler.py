@@ -28,7 +28,7 @@ from http import HTTPStatus
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple, Union
 
-import group_requests_ext
+import hiradix_schedule_utils
 import psutil
 import setproctitle
 import torch
@@ -1227,7 +1227,7 @@ class Scheduler(
             self.tree_cache.writing_check()
             self.tree_cache.loading_check()
 
-        request_groups = group_requests_ext.group_requests(
+        request_groups = hiradix_schedule_utils.group_requests(
             [req.origin_input_ids for req in self.waiting_queue]
         )
 

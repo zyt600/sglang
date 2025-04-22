@@ -5,6 +5,7 @@ import time
 from typing import List, Optional
 
 import torch
+import hiradix_schedule_utils
 
 from sglang.srt.managers.cache_controller import HiCacheController
 from sglang.srt.mem_cache.memory_pool import (
@@ -74,18 +75,20 @@ class HiRadixCache(RadixCache):
             1 if hicache_write_policy == "write_through" else 3
         )
         self.load_back_threshold = 10
+        self.tree_cpp = hiradix_schedule_utils.HiRadixCache_CPP()
         super().__init__(
             req_to_token_pool, token_to_kv_pool_allocator, page_size, disable=False
         )
 
     def reset(self):
+        TreeNode.reset_counter()
         self.root_node = TreeNode()
+        self.tree_cpp.reset()
         self.root_node.key = []
         self.root_node.value = []
         self.root_node.lock_ref = 1
         self.evictable_size_ = 0
         self.protected_size_ = 0
-        TreeNode.counter = 0
         self.cache_controller.reset()
         self.token_to_kv_pool_host.clear()
         self.load_cache_event.clear()
@@ -110,6 +113,7 @@ class HiRadixCache(RadixCache):
             )
         if host_indices is not None:
             node.host_value = host_indices
+            self.tree_cpp.backup_node(node.id)
             self.ongoing_write_through[node.id] = node
             self.inc_lock_ref(node)
         else:
@@ -205,6 +209,7 @@ class HiRadixCache(RadixCache):
         assert num_evicted > 0
         self.evictable_size_ -= num_evicted
         node.value = None
+        self.tree_cpp.evict_node(node.id)
         return num_evicted
 
     def _evict_write_through_selective(self, node: TreeNode):
@@ -212,6 +217,7 @@ class HiRadixCache(RadixCache):
         self.cache_controller.mem_pool_device_allocator.free(node.value)
         num_evicted = len(node.value)
         self._delete_leaf(node)
+        self.tree_cpp.delete_node(node.id)
         return num_evicted
 
     def evict_host(self, num_tokens: int):
@@ -233,6 +239,7 @@ class HiRadixCache(RadixCache):
                 if v == x:
                     break
             del x.parent.children[k]
+            self.tree_cpp.delete_node(x.id)
             x.dangling = True
 
             if len(x.parent.children) == 0 and x.parent.evicted:
@@ -283,6 +290,7 @@ class HiRadixCache(RadixCache):
         offset = 0
         for node in nodes_to_load:
             node.value = device_indices[offset : offset + len(node.host_value)]
+            self.tree_cpp.load_node(node.id)
             offset += len(node.host_value)
             node.loading = True
         self.evictable_size_ += len(device_indices)
@@ -395,6 +403,7 @@ class HiRadixCache(RadixCache):
         child.parent = new_node
         child.key = child.key[split_len:]
         new_node.parent.children[self.get_child_key_fn(key)] = new_node
+        self.tree_cpp.split_node(child.id, child.key, new_node.id, new_node.key)
         return new_node
 
     def _insert_helper(self, node: TreeNode, key: List, value):
@@ -415,6 +424,7 @@ class HiRadixCache(RadixCache):
                     # change the reference if the node is evicted
                     # this often happens in the case of KV cache recomputation
                     node.value = value[:prefix_len]
+                    self.tree_cpp.load_node(node.id)
                     self.token_to_kv_pool_host.update_synced(node.host_value)
                     self.evictable_size_ += len(node.value)
                 else:
@@ -425,6 +435,7 @@ class HiRadixCache(RadixCache):
                 new_node = self._split_node(node.key, node, prefix_len)
                 if new_node.evicted:
                     new_node.value = value[:prefix_len]
+                    self.tree_cpp.load_node(new_node.id)
                     self.token_to_kv_pool_host.update_synced(new_node.host_value)
                     self.evictable_size_ += len(new_node.value)
                 else:
@@ -445,6 +456,7 @@ class HiRadixCache(RadixCache):
             new_node.value = value
             node.children[child_key] = new_node
             self.evictable_size_ += len(value)
+            self.tree_cpp.insert_node(new_node.id, new_node.key, node.id)
 
             if self.cache_controller.write_policy != "write_back":
                 self.inc_hit_count(new_node)
