@@ -72,7 +72,7 @@ class HiRadixCache(RadixCache):
         self.ongoing_load_back = {}
         # todo: dynamically adjust the threshold
         self.write_through_threshold = (
-            1 if hicache_write_policy == "write_through" else 3
+            1 if hicache_write_policy == "write_through" else 2
         )
         self.load_back_threshold = 10
         self.tree_cpp = hiradix_schedule_utils.HiRadixCache_CPP()
@@ -365,13 +365,11 @@ class HiRadixCache(RadixCache):
             prefix_len = self.key_match_fn(child.key, key)
             if prefix_len < len(child.key):
                 new_node = self._split_node(child.key, child, prefix_len)
-                self.inc_hit_count(new_node)
                 if not new_node.evicted:
                     value.append(new_node.value)
                 node = new_node
                 break
             else:
-                self.inc_hit_count(child)
                 if not child.evicted:
                     value.append(child.value)
                 node = child
@@ -390,6 +388,7 @@ class HiRadixCache(RadixCache):
         new_node.lock_ref = child.lock_ref
         new_node.key = child.key[:split_len]
         new_node.loading = child.loading
+        new_node.hit_count = child.hit_count
 
         # split value and host value if exists
         if child.evicted:
