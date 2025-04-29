@@ -24,6 +24,8 @@ struct TreeNode : std::enable_shared_from_this<TreeNode> {
 
   bool evicted = false;
   bool backuped = false;
+  int ref_count = 0;
+  std::vector<std::vector<int>> pending_requests;
 
   TreeNode(NodeId id, std::vector<int> k, TreeNode* p = nullptr);
   ~TreeNode() = default;
@@ -50,9 +52,14 @@ class HiRadixCache {
   bool split_node(NodeId node_id, std::vector<int>& key_segment,
                   NodeId new_node_id, std::vector<int>& new_key_segment);
 
+  void inc_lock_ref(NodeId node_id);
+  void dec_lock_ref(NodeId node_id);
+  void insert_pending_request(NodeId node_id, std::vector<int>& request);
+
   // --- Public Query Method ---
-  // Returns tuple (hit_device_len, hit_host_len, to_compute_len)
-  std::tuple<int, int, int> match_prefix(const std::vector<int>& key) const;
+  std::vector<int> scheduling(std::vector<std::vector<int>> requests);
+  std::tuple<int, int, int, int> match_prefix(const std::vector<int>& key,
+                                              bool lock_only) const;
 
  private:
   // --- Private Data Members ---

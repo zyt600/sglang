@@ -1227,13 +1227,6 @@ class Scheduler(
             self.tree_cache.writing_check()
             self.tree_cache.loading_check()
 
-        request_groups = hiradix_schedule_utils.group_requests(
-            [req.origin_input_ids for req in self.waiting_queue]
-        )
-
-        # Get priority queue
-        prefix_computed = self.policy.calc_priority(self.waiting_queue)
-
         # Prefill policy
         adder = PrefillAdder(
             self.tree_cache,
@@ -1297,21 +1290,21 @@ class Scheduler(
                         )
                     else:
                         self.running_batch.batch_is_full = True
-                return False
+                    # keep trying to add requests till the batch is full
+                    return False
             return True
 
-        for group in request_groups:
-            if len(group) > 1:
-                req = self.waiting_queue[group[0]]
-                if not process_req(req, prefix_computed):
-                    # not enough memory to process requests
-                    break
-                # todo, fix adhoc threshold
-                if len(req.prefix_indices) < 100:
-                    continue
-                group = group[1:]
-            for i in group:
-                if not process_req(self.waiting_queue[i], prefix_computed):
+        if self.chunked_req is not None:
+            # skip iterating over the waiting queue
+            pass
+        else:
+            reordered_indices = self.tree_cache.tree_cpp.scheduling(
+                [req.origin_input_ids for req in self.waiting_queue]
+            )
+
+            for i in reordered_indices:
+                assert i < len(self.waiting_queue) and reordered_indices.count(i) == 1
+                if not process_req(self.waiting_queue[i], False):
                     break
 
         # Update waiting queue
@@ -1322,8 +1315,26 @@ class Scheduler(
             x for x in self.waiting_queue if x not in set(can_run_list)
         ]
 
-        # if self.enable_hierarchical_cache:
-        #     self.tree_cache.ready_to_load_cache()
+        if self.enable_hierarchical_cache:
+            # self.tree_cache.ready_to_load_cache()
+            hit = 0
+            to_load = 0
+            to_compute = 0
+            for r in can_run_list:
+                r_load = 0
+                node = r.last_node
+                self.tree_cache.insert_pending_request(
+                    node, r.origin_input_ids[len(r.prefix_indices) :]
+                )
+                while node.loading:
+                    r_load += len(node.value)
+                    node = node.parent
+                hit += len(r.prefix_indices) - r_load
+                to_load += r_load
+                to_compute += r.extend_input_len
+            logger.info(
+                f"for the current batch, to_load: {to_load}, to_compute: {to_compute}, hit: {hit}, queue: {len(self.waiting_queue)}"
+            )
 
         if adder.new_chunked_req is not None:
             assert self.chunked_req is None

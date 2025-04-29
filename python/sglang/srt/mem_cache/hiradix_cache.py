@@ -129,6 +129,15 @@ class HiRadixCache(RadixCache):
             self.write_backup(node)
             node.hit_count = 0
 
+    def inc_lock_ref_cpp(self, node: TreeNode):
+        self.tree_cpp.inc_lock_ref(node.id)
+
+    def dec_lock_ref_cpp(self, node: TreeNode):
+        self.tree_cpp.dec_lock_ref(node.id)
+
+    def insert_pending_request(self, node: TreeNode, key: List[int]):
+        self.tree_cpp.insert_pending_request(node.id, key)
+
     def writing_check(self):
         queue_size = torch.tensor(
             self.cache_controller.ack_write_queue.qsize(), dtype=torch.int

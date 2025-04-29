@@ -506,6 +506,7 @@ class PrefillAdder:
                 # Non-chunked prefill
                 self.can_run_list.append(req)
                 self.tree_cache.inc_lock_ref(req.last_node)
+                self.tree_cache.inc_lock_ref_cpp(req.last_node)
                 self._prefill_one_req(
                     prefix_len,
                     input_tokens,
@@ -527,6 +528,7 @@ class PrefillAdder:
                 self.can_run_list.append(req)
                 self.new_chunked_req = req
                 self.tree_cache.inc_lock_ref(req.last_node)
+                self.tree_cache.inc_lock_ref_cpp(req.last_node)
                 self._prefill_one_req(prefix_len, trunc_len, 0)
 
         return self.budget_state()

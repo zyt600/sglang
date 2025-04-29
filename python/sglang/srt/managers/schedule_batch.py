@@ -1240,6 +1240,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
 
                 # release the last node
                 self.tree_cache.dec_lock_ref(req.last_node)
+                self.tree_cache.dec_lock_ref_cpp(req.last_node)
 
                 # NOTE(lsyin): we should use the newly evictable memory instantly.
                 residual_size = (

@@ -209,6 +209,7 @@ class RadixCache(BasePrefixCache):
         # Remove req slot release the cache lock
         self.req_to_token_pool.free(req.req_pool_idx)
         self.dec_lock_ref(req.last_node)
+        self.dec_lock_ref_cpp(req.last_node)
 
     def cache_unfinished_req(self, req: Req):
         """Cache request when it is unfinished."""
@@ -245,6 +246,9 @@ class RadixCache(BasePrefixCache):
 
         self.dec_lock_ref(req.last_node)
         self.inc_lock_ref(new_last_node)
+
+        self.dec_lock_ref_cpp(req.last_node)
+        self.inc_lock_ref_cpp(new_last_node)
 
         # `req.prefix_indices` will be used in `PrefillAdder::add_chunked_req` later
         if self.page_size != 1:
