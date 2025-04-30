@@ -79,7 +79,7 @@ class ContextWorkloadGenerator(WorkloadGenerator):
 if __name__ == "__main__":
     args = parse_args()
     args.num_rounds = 1
-    args.max_parallel = 64
+    args.max_parallel = 128
     flush_cache_url = f"http://{args.host}:{args.port}/flush_cache"
 
     for request_rate in [24, 16, 12, 8, 4, 2, 1]:
