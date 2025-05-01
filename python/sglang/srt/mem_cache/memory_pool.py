@@ -247,8 +247,6 @@ class MHATokenToKVPool(KVCache):
         self.device_module = torch.get_device_module(self.device)
         self.alt_stream = self.device_module.Stream()
 
-        self.layer_transfer_counter = None
-
         k_size, v_size = self.get_kv_size_bytes()
         logger.info(
             f"KV Cache is allocated. #tokens: {size}, K size: {k_size / GB:.2f} GB, V size: {v_size / GB:.2f} GB"

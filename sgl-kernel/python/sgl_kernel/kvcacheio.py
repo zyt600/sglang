@@ -9,7 +9,7 @@ def transfer_kv_per_layer(
     src_indices: torch.Tensor,
     dst_indices: torch.Tensor,
     item_size: int,
-    block_quota: int = 4,
+    block_quota: int = 2,
     num_warps_per_block: int = 32,
 ):
     torch.ops.sgl_kernel.transfer_kv_per_layer(
@@ -36,8 +36,8 @@ def transfer_kv_all_layer(
     num_layers: int,
     src_layer_offset: int,
     dst_layer_offset: int,
-    block_quota: int = 4,
-    num_warps_per_block: int = 16,
+    block_quota: int = 2,
+    num_warps_per_block: int = 32,
 ):
     torch.ops.sgl_kernel.transfer_kv_all_layer(
         src_k,
