@@ -723,6 +723,8 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
 
     # Whether to return hidden states
     return_hidden_states: bool = False
+    is_loading_bound: bool = False
+    hicache_consumer_index: int = 0
 
     @classmethod
     def init_new(
@@ -1491,6 +1493,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
             input_embeds=self.input_embeds,
             spec_algorithm=self.spec_algorithm,
             spec_info=self.spec_info,
+            hicache_consumer_index=self.hicache_consumer_index,
             capture_hidden_mode=(
                 CaptureHiddenMode.FULL
                 if self.return_hidden_states
@@ -1584,6 +1587,8 @@ class ModelWorkerBatch:
     spec_info: Optional[Union[EagleVerifyInput, EagleDraftInput]] = None
     # If set, the output of the batch contains the hidden states of the run.
     capture_hidden_mode: CaptureHiddenMode = None
+
+    hicache_consumer_index: int = 0
 
 
 @triton.jit

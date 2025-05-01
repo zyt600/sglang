@@ -85,14 +85,13 @@ class TpModelWorkerClient:
         if self.device == "cpu":
             self.scheduler_stream.synchronize = lambda: None  # No-op for CPU
 
-        self.load_cache_event = None
+        self.layer_transfer_counter = None
 
-    def register_load_cache_event(self, event):
-        self.load_cache_event = event
+    def register_layer_transfer_counter(self, layer_transfer_counter):
+        self.layer_transfer_counter = layer_transfer_counter
 
-    def ready_to_load_cache(self):
-        if self.load_cache_event is not None:
-            self.load_cache_event.set()
+    def set_hicache_consumer(self, consumer_index):
+        self.layer_transfer_counter.set_consumer(consumer_index)
 
     def get_worker_info(self):
         return self.worker.get_worker_info()
@@ -149,7 +148,7 @@ class TpModelWorkerClient:
             resolve_future_token_ids(input_ids, self.future_token_ids_map)
 
             # overlap the data loading and forwarding
-            self.ready_to_load_cache()
+            self.set_hicache_consumer(model_worker_batch.hicache_consumer_index)
             # Run forward
             logits_output, next_token_ids = self.worker.forward_batch_generation(
                 model_worker_batch, self.launch_done

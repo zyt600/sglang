@@ -29,22 +29,34 @@ logger = logging.getLogger(__name__)
 
 class LayerDoneCounter:
     def __init__(self, num_layers):
-        self.counter = num_layers
-        self.condition = threading.Condition()
+        self.counters = [num_layers] * 3
+        self.conditions = [threading.Condition() for _ in range(3)]
+        self.producer_index = 0
+        self.consumer_index = 0
+
+    def next_producer(self):
+        return (self.producer_index + 1) % 3
+
+    def update_producer(self):
+        self.producer_index = self.next_producer()
+        return self.producer_index
+
+    def set_consumer(self, index):
+        self.consumer_index = index
 
     def increment(self):
-        with self.condition:
-            self.counter += 1
-            self.condition.notify_all()
+        with self.conditions[self.producer_index]:
+            self.counters[self.producer_index] += 1
+            self.conditions[self.producer_index].notify_all()
 
     def wait_until(self, threshold):
-        with self.condition:
-            while self.counter <= threshold:
-                self.condition.wait()
+        with self.conditions[self.consumer_index]:
+            while self.counters[self.consumer_index] <= threshold:
+                self.conditions[self.consumer_index].wait()
 
     def reset(self):
-        with self.condition:
-            self.counter = 0
+        with self.conditions[self.producer_index]:
+            self.counters[self.producer_index] = 0
 
 
 class CacheOperation:
@@ -324,6 +336,7 @@ class HiCacheController:
                 if not self.load_cache_event.is_set():
                     continue
                 self.load_cache_event.clear()
+                self.layer_done_counter.update_producer()
 
                 batch_operation = None
                 while self.load_queue.qsize() > 0:

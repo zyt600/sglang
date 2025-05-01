@@ -309,6 +309,7 @@ class Scheduler(
         self.running_batch: ScheduleBatch = ScheduleBatch(reqs=[], batch_is_full=False)
         # The current forward batch
         self.cur_batch: Optional[ScheduleBatch] = None
+        self.pending_batch: Optional[ScheduleBatch] = None
         # The last forward batch
         self.last_batch: Optional[ScheduleBatch] = None
         self.forward_ct = 0
@@ -488,7 +489,9 @@ class Scheduler(
                     disable=server_args.disable_radix_cache,
                 )
 
-        self.tp_worker.register_load_cache_event(self.tree_cache.load_cache_event)
+        self.tp_worker.register_layer_transfer_counter(
+            self.tree_cache.cache_controller.layer_done_counter
+        )
 
         self.decode_mem_cache_buf_multiplier = (
             1
@@ -1188,17 +1191,25 @@ class Scheduler(
                     # Merge running_batch with prefill batch
                     self.running_batch.merge_batch(self.last_batch)
 
-        new_batch = self.get_new_batch_prefill()
-        if new_batch is not None:
-            # Run prefill first if possible
-            ret = new_batch
+        if self.pending_batch is not None:
+            ret = self.pending_batch
+            self.pending_batch = None
         else:
-            # Run decode
-            if not self.running_batch.is_empty():
+            new_batch = self.get_new_batch_prefill()
+            if new_batch is None:
                 self.running_batch = self.update_running_batch(self.running_batch)
                 ret = self.running_batch if not self.running_batch.is_empty() else None
             else:
-                ret = None
+                if new_batch.is_loading_bound:
+                    self.running_batch = self.update_running_batch(self.running_batch)
+                    if self.running_batch.is_empty():
+                        ret = new_batch
+                    else:
+                        # delay the new batch to overlap KV cache loading with decode batch
+                        ret = self.running_batch
+                        self.pending_batch = new_batch
+                else:
+                    ret = new_batch
 
         # Handle DP attention
         if self.server_args.enable_dp_attention or self.server_args.enable_sp_layernorm:
@@ -1315,25 +1326,34 @@ class Scheduler(
             x for x in self.waiting_queue if x not in set(can_run_list)
         ]
 
+        is_loading_bound = False
+        hicache_consumer_index = 0
         if self.enable_hierarchical_cache:
-            # self.tree_cache.ready_to_load_cache()
-            hit = 0
-            to_load = 0
-            to_compute = 0
+            hicache_consumer_index = self.tree_cache.ready_to_load_cache()
+            hit = to_load = real_load = to_compute = 0
+            loading_nodes = set()
             for r in can_run_list:
-                r_load = 0
+                # keep track of ongoing requests for delay hit
                 node = r.last_node
                 self.tree_cache.insert_pending_request(
                     node, r.origin_input_ids[len(r.prefix_indices) :]
                 )
+                r_load = 0
                 while node.loading:
                     r_load += len(node.value)
+                    if node.id not in loading_nodes:
+                        real_load += len(node.value)
+                        loading_nodes.add(node.id)
                     node = node.parent
                 hit += len(r.prefix_indices) - r_load
                 to_load += r_load
                 to_compute += r.extend_input_len
+            # todo, adaptive threshold
+            if real_load > 20000 and real_load / to_compute > 100:
+                is_loading_bound = True
+                logger.info(f"Loading bound detected: {real_load=}, {to_compute=}")
             logger.info(
-                f"for the current batch, to_load: {to_load}, to_compute: {to_compute}, hit: {hit}, queue: {len(self.waiting_queue)}"
+                f"for the current batch: {to_load=}, {real_load=}, {to_compute=}, {hit=}, queue: {len(self.waiting_queue)}"
             )
 
         if adder.new_chunked_req is not None:
@@ -1359,6 +1379,8 @@ class Scheduler(
             self.server_args.enable_custom_logit_processor,
         )
         new_batch.prepare_for_extend()
+        new_batch.is_loading_bound = is_loading_bound
+        new_batch.hicache_consumer_index = hicache_consumer_index
 
         # Mixed-style chunked prefill
         if (

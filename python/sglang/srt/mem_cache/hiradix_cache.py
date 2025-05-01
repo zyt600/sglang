@@ -334,7 +334,9 @@ class HiRadixCache(RadixCache):
         return last_node, prefix_indices
 
     def ready_to_load_cache(self):
+        producer_index = self.cache_controller.layer_done_counter.next_producer()
         self.load_cache_event.set()
+        return producer_index
 
     def match_prefix(self, key: List[int], include_evicted=False, **kwargs):
         empty_value = torch.empty((0,), dtype=torch.int64, device=self.device)
