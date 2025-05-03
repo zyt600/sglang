@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 class LayerDoneCounter:
     def __init__(self, num_layers):
+        self.num_layers = num_layers
         self.counters = [num_layers] * 3
         self.conditions = [threading.Condition() for _ in range(3)]
         self.producer_index = 0
@@ -53,6 +54,9 @@ class LayerDoneCounter:
         with self.conditions[self.consumer_index]:
             while self.counters[self.consumer_index] <= threshold:
                 self.conditions[self.consumer_index].wait()
+
+    def quarter_done(self, index) -> bool:
+        return self.counters[index] >= self.num_layers // 4
 
     def reset(self):
         with self.conditions[self.producer_index]:

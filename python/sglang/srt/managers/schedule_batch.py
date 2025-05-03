@@ -1508,6 +1508,9 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
             extend_input_logprob_token_ids=self.extend_input_logprob_token_ids,
         )
 
+    def check_hicache_quarter_done(self):
+        return self.tree_cache.check_hicache_quarter_done(self.hicache_consumer_index)
+
     def copy(self):
         # Only contain fields that will be used by process_batch_result
         return ScheduleBatch(

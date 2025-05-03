@@ -1192,8 +1192,17 @@ class Scheduler(
                     self.running_batch.merge_batch(self.last_batch)
 
         if self.pending_batch is not None:
-            ret = self.pending_batch
-            self.pending_batch = None
+            if self.pending_batch.check_hicache_quarter_done():
+                ret = self.pending_batch
+                self.pending_batch = None
+            else:
+                self.running_batch = self.update_running_batch(self.running_batch)
+                if self.running_batch.is_empty():
+                    ret = self.pending_batch
+                    self.pending_batch = None
+                else:
+                    # overlap KV cache loading with more decode batches
+                    ret = self.running_batch
         else:
             new_batch = self.get_new_batch_prefill()
             if new_batch is None:
@@ -1349,7 +1358,11 @@ class Scheduler(
                 to_load += r_load
                 to_compute += r.extend_input_len
             # todo, adaptive threshold
-            if real_load > 20000 and real_load / to_compute > 100:
+            if (
+                (real_load > 40000 and real_load / to_compute > 50)
+                or (real_load > 20000 and real_load / to_compute > 100)
+                or (real_load > 10000 and real_load / to_compute > 200)
+            ):
                 is_loading_bound = True
                 logger.info(f"Loading bound detected: {real_load=}, {to_compute=}")
             logger.info(

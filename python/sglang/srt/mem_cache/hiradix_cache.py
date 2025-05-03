@@ -338,6 +338,9 @@ class HiRadixCache(RadixCache):
         self.load_cache_event.set()
         return producer_index
 
+    def check_hicache_quarter_done(self, index):
+        return self.cache_controller.layer_done_counter.quarter_done(index)
+
     def match_prefix(self, key: List[int], include_evicted=False, **kwargs):
         empty_value = torch.empty((0,), dtype=torch.int64, device=self.device)
         if self.disable or len(key) == 0:
