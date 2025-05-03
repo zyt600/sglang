@@ -1,14 +1,14 @@
-#include "hiradixcache.hpp"  // Include the header file
+#include "hiradixcache.hpp" // Include the header file
 
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>     // For automatic vector/tuple conversions
-#include <torch/extension.h>  // For PyTorch C++ extension bindings
+#include <pybind11/stl.h>    // For automatic vector/tuple conversions
+#include <torch/extension.h> // For PyTorch C++ extension bindings
 
 #include <algorithm>
 #include <cstdlib>
 #include <limits>
-#include <stack>      // For potential non-recursive helpers (if needed)
-#include <stdexcept>  // Include for std::runtime_error
+#include <stack>     // For potential non-recursive helpers (if needed)
+#include <stdexcept> // Include for std::runtime_error
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -22,8 +22,8 @@ const int CACHE_THRESHOLD = 100;
 // ============================================================================
 
 // --- Constructor ---
-TreeNode::TreeNode(NodeId id, std::vector<int> k, TreeNode* p)
-    : id(id), key(std::move(k)), parent(p) {}  // Correct initializer list
+TreeNode::TreeNode(NodeId id, std::vector<int> k, TreeNode *p)
+    : id(id), key(std::move(k)), parent(p) {} // Correct initializer list
 
 // ============================================================================
 // HiRadixCache Method Implementations
@@ -37,22 +37,22 @@ HiRadixCache::HiRadixCache(NodeId root_node_id) {
 }
 
 // --- Private Helper: Find Node by ID ---
-TreeNode* HiRadixCache::find_node_by_id(NodeId node_id) const {
+TreeNode *HiRadixCache::find_node_by_id(NodeId node_id) const {
   auto it = node_id_map_.find(node_id);
   return (it != node_id_map_.end()) ? it->second : nullptr;
 }
 
 // --- Private Helper: Get Child Key ---
-int HiRadixCache::get_child_key(const std::vector<int>& key) const {
+int HiRadixCache::get_child_key(const std::vector<int> &key) const {
   if (key.empty()) {
     throw std::runtime_error("Cannot get child key from empty key segment");
   }
-  return key[0];  // Use first element as the map key
+  return key[0]; // Use first element as the map key
 }
 
 // --- Private Helper: Key Match ---
-size_t HiRadixCache::key_match(const std::vector<int>& node_key,
-                               const std::vector<int>& query_key) const {
+size_t HiRadixCache::key_match(const std::vector<int> &node_key,
+                               const std::vector<int> &query_key) const {
   size_t len = std::min(node_key.size(), query_key.size());
   size_t i = 0;
   while (i < len && node_key[i] == query_key[i]) {
@@ -66,14 +66,14 @@ size_t HiRadixCache::key_match(const std::vector<int>& node_key,
 void HiRadixCache::reset() {
   NodeId root_id = root_node_ ? root_node_->id : 0;
   node_id_map_.clear();
-  root_node_.reset();  // Release old tree
+  root_node_.reset(); // Release old tree
   // Recreate root node
   root_node_ = std::make_shared<TreeNode>(root_id, std::vector<int>{}, nullptr);
   node_id_map_[root_node_->id] = root_node_.get();
 }
 
 bool HiRadixCache::backup_node(NodeId node_id) {
-  TreeNode* node = find_node_by_id(node_id);
+  TreeNode *node = find_node_by_id(node_id);
   if (!node) {
     throw std::runtime_error("Node ID not found in the cache. Node ID: " +
                              std::to_string(node_id));
@@ -83,7 +83,7 @@ bool HiRadixCache::backup_node(NodeId node_id) {
 }
 
 bool HiRadixCache::evict_node(NodeId node_id) {
-  TreeNode* node = find_node_by_id(node_id);
+  TreeNode *node = find_node_by_id(node_id);
   if (!node) {
     throw std::runtime_error("Node ID not found in the cache. Node ID: " +
                              std::to_string(node_id));
@@ -98,7 +98,7 @@ bool HiRadixCache::evict_node(NodeId node_id) {
 }
 
 bool HiRadixCache::load_node(NodeId node_id) {
-  TreeNode* node = find_node_by_id(node_id);
+  TreeNode *node = find_node_by_id(node_id);
   if (!node) {
     throw std::runtime_error("Node ID not found in the cache. Node ID: " +
                              std::to_string(node_id));
@@ -108,7 +108,7 @@ bool HiRadixCache::load_node(NodeId node_id) {
 }
 
 bool HiRadixCache::delete_node(NodeId node_id) {
-  TreeNode* node_to_remove = find_node_by_id(node_id);
+  TreeNode *node_to_remove = find_node_by_id(node_id);
   if (!node_to_remove || node_to_remove == root_node_.get()) {
     throw std::runtime_error(
         "Attempted to delete root node or null node using delete_node.");
@@ -130,12 +130,12 @@ bool HiRadixCache::delete_node(NodeId node_id) {
   }
   // --- End Added Check ---
 
-  TreeNode* parent_node = node_to_remove->parent;
+  TreeNode *parent_node = node_to_remove->parent;
   int child_map_key = get_child_key(node_to_remove->key);
 
   auto it = parent_node->children.find(child_map_key);
   if (it != parent_node->children.end() && it->second.get() == node_to_remove) {
-    node_id_map_.erase(node_to_remove->id);  // Remove from ID map
+    node_id_map_.erase(node_to_remove->id); // Remove from ID map
     // Erase from parent's children map (releases shared_ptr)
     parent_node->children.erase(it);
     return true;
@@ -146,8 +146,8 @@ bool HiRadixCache::delete_node(NodeId node_id) {
 }
 
 void HiRadixCache::insert_pending_request(NodeId node_id,
-                                          std::vector<int>& request) {
-  TreeNode* node = find_node_by_id(node_id);
+                                          std::vector<int> &request) {
+  TreeNode *node = find_node_by_id(node_id);
   if (!node) {
     throw std::runtime_error("Node ID not found in the cache. Node ID: " +
                              std::to_string(node_id));
@@ -157,9 +157,9 @@ void HiRadixCache::insert_pending_request(NodeId node_id,
   }
 }
 
-bool HiRadixCache::insert_node(NodeId node_id, std::vector<int>& key_segment,
+bool HiRadixCache::insert_node(NodeId node_id, std::vector<int> &key_segment,
                                NodeId parent_id) {
-  TreeNode* parent_node = find_node_by_id(parent_id);
+  TreeNode *parent_node = find_node_by_id(parent_id);
   if (!parent_node) {
     throw std::runtime_error(
         "Parent node not found for insertion. Parent ID: " +
@@ -179,7 +179,7 @@ bool HiRadixCache::insert_node(NodeId node_id, std::vector<int>& key_segment,
   std::vector<std::vector<int>> new_pending_requests;
   for (int idx = 0; idx < parent_node->pending_requests.size(); ++idx) {
     // check and erase pending requests that match the key segment
-    auto& pending_r = parent_node->pending_requests[idx];
+    auto &pending_r = parent_node->pending_requests[idx];
     int match_len = key_match(pending_r, key_segment);
     if (match_len == key_segment.size()) {
       pending_r.erase(pending_r.begin(), pending_r.begin() + match_len);
@@ -207,15 +207,15 @@ bool HiRadixCache::insert_node(NodeId node_id, std::vector<int>& key_segment,
 }
 
 bool HiRadixCache::split_node(NodeId original_node_id,
-                              std::vector<int>& key_segment_back,
+                              std::vector<int> &key_segment_back,
                               NodeId new_node_id,
-                              std::vector<int>& key_segment_front) {
-  TreeNode* original_node = find_node_by_id(original_node_id);
+                              std::vector<int> &key_segment_front) {
+  TreeNode *original_node = find_node_by_id(original_node_id);
   if (!original_node) {
     throw std::runtime_error("Original node not found for split. Node ID: " +
                              std::to_string(original_node_id));
   }
-  TreeNode* parent_node = original_node->parent;
+  TreeNode *parent_node = original_node->parent;
 
   int map_key_back = get_child_key(key_segment_back);
   int map_key_front = get_child_key(key_segment_front);
@@ -236,13 +236,13 @@ bool HiRadixCache::split_node(NodeId original_node_id,
   parent_node->children[map_key_front] = new_node;
 
   original_node->key = std::move(key_segment_back);
-  original_node->parent = new_node.get();  // Update parent of the original node
+  original_node->parent = new_node.get(); // Update parent of the original node
 
   return true;
 }
 
 void HiRadixCache::inc_lock_ref(NodeId node_id) {
-  TreeNode* node = find_node_by_id(node_id);
+  TreeNode *node = find_node_by_id(node_id);
   if (!node) {
     throw std::runtime_error("Node ID not found in the cache. Node ID: " +
                              std::to_string(node_id));
@@ -254,7 +254,7 @@ void HiRadixCache::inc_lock_ref(NodeId node_id) {
 }
 
 void HiRadixCache::dec_lock_ref(NodeId node_id) {
-  TreeNode* node = find_node_by_id(node_id);
+  TreeNode *node = find_node_by_id(node_id);
   if (!node) {
     throw std::runtime_error("Node ID not found in the cache. Node ID: " +
                              std::to_string(node_id));
@@ -265,14 +265,15 @@ void HiRadixCache::dec_lock_ref(NodeId node_id) {
   }
 }
 
-std::tuple<int, int, int, int> HiRadixCache::match_prefix(
-    const std::vector<int>& key, bool lock_only = true) const {
+std::tuple<int, int, int, int>
+HiRadixCache::match_prefix(const std::vector<int> &key,
+                           bool lock_only = true) const {
   int hit_device_len = 0;
   int hit_host_len = 0;
   int pending_hit_len = 0;
   size_t total_matched_len = 0;
 
-  auto current_node = root_node_.get();  // Use raw pointer for traversal
+  auto current_node = root_node_.get(); // Use raw pointer for traversal
   std::vector<int> key_remaining = key;
 
   while (!key_remaining.empty()) {
@@ -282,7 +283,7 @@ std::tuple<int, int, int, int> HiRadixCache::match_prefix(
     if (it == current_node->children.end()) {
       // matching complete, check if any pending requests match
       if (current_node->pending_requests.size() > 0) {
-        for (const auto& pending_request : current_node->pending_requests) {
+        for (const auto &pending_request : current_node->pending_requests) {
           int match_len = key_match(pending_request, key_remaining);
           pending_hit_len = std::max(pending_hit_len, match_len);
         }
@@ -332,12 +333,12 @@ struct Request {
   std::string prefix_key;
 };
 
-static std::string buildPrefixKey(const std::vector<int>& request,
+static std::string buildPrefixKey(const std::vector<int> &request,
                                   int threshold) {
   int prefixLen = std::min(static_cast<int>(request.size()), threshold);
 
   std::string key;
-  key.reserve(prefixLen * 4);  // rough guess to reduce reallocation
+  key.reserve(prefixLen * 4); // rough guess to reduce reallocation
   for (int i = 0; i < prefixLen; ++i) {
     key += std::to_string(request[i]);
     if (i < prefixLen - 1) {
@@ -352,45 +353,45 @@ struct GroupInfo {
   int earliestIndex;
 };
 
-std::vector<int> scheduling_lpm(const std::vector<Request>& request_list) {
-  std::vector<int> reordered_indices(request_list.size());
-  std::iota(reordered_indices.begin(), reordered_indices.end(), 0);
-
-  std::sort(
-      reordered_indices.begin(), reordered_indices.end(),
-      [&request_list](int index1, int index2) {
-        const Request& r1 = request_list[index1];
-        const Request& r2 = request_list[index2];
-        if (std::abs(r1.hit_device_len - r2.hit_device_len) > CACHE_THRESHOLD) {
-          return r1.hit_device_len > r2.hit_device_len;
-        }
-        return index1 < index2;
-      });
-  return reordered_indices;
-}
-
-std::vector<int> scheduling_glpm(const std::vector<Request>& request_list) {
+std::vector<int> scheduling_lpm(const std::vector<Request> &request_list) {
   std::vector<int> reordered_indices(request_list.size());
   std::iota(reordered_indices.begin(), reordered_indices.end(), 0);
 
   std::sort(reordered_indices.begin(), reordered_indices.end(),
             [&request_list](int index1, int index2) {
-              const Request& r1 = request_list[index1];
-              const Request& r2 = request_list[index2];
-              if (r1.hit_device_len + r1.hit_host_len !=
-                  r2.hit_device_len + r2.hit_host_len) {
-                return r1.hit_device_len + r1.hit_host_len >
-                       r2.hit_device_len +
-                           r2.hit_host_len;  // longer global match first
+              const Request &r1 = request_list[index1];
+              const Request &r2 = request_list[index2];
+              if (std::abs(r1.hit_device_len - r2.hit_device_len) >
+                  CACHE_THRESHOLD) {
+                return r1.hit_device_len > r2.hit_device_len;
               }
               return index1 < index2;
             });
   return reordered_indices;
 }
 
-std::vector<int> scheduling_grouping(
-    const std::vector<Request>& request_list,
-    std::unordered_map<std::string, GroupInfo>& prefixMap) {
+std::vector<int> scheduling_glpm(const std::vector<Request> &request_list) {
+  std::vector<int> reordered_indices(request_list.size());
+  std::iota(reordered_indices.begin(), reordered_indices.end(), 0);
+
+  std::sort(reordered_indices.begin(), reordered_indices.end(),
+            [&request_list](int index1, int index2) {
+              const Request &r1 = request_list[index1];
+              const Request &r2 = request_list[index2];
+              if (r1.hit_device_len + r1.hit_host_len !=
+                  r2.hit_device_len + r2.hit_host_len) {
+                return r1.hit_device_len + r1.hit_host_len >
+                       r2.hit_device_len +
+                           r2.hit_host_len; // longer global match first
+              }
+              return index1 < index2;
+            });
+  return reordered_indices;
+}
+
+std::vector<int>
+scheduling_grouping(const std::vector<Request> &request_list,
+                    std::unordered_map<std::string, GroupInfo> &prefixMap) {
   std::vector<int> reordered_indices;
   reordered_indices.reserve(request_list.size());
   using MapConstIterator =
@@ -407,18 +408,18 @@ std::vector<int> scheduling_grouping(
   std::sort(group_iters.begin(), group_iters.end(),
             [request_list](MapConstIterator it1, MapConstIterator it2) {
               // Access GroupInfo directly via the iterator
-              const GroupInfo& g1_info = it1->second;
-              const GroupInfo& g2_info = it2->second;
+              const GroupInfo &g1_info = it1->second;
+              const GroupInfo &g2_info = it2->second;
               const size_t size1 = g1_info.indices.size();
               const size_t size2 = g2_info.indices.size();
 
               if (size1 != size2) {
-                return size1 > size2;  // larger group first
+                return size1 > size2; // larger group first
               }
               if (size1 == 1) {
                 // sort by hit_device_len
-                const Request& r1 = request_list[g1_info.earliestIndex];
-                const Request& r2 = request_list[g2_info.earliestIndex];
+                const Request &r1 = request_list[g1_info.earliestIndex];
+                const Request &r2 = request_list[g2_info.earliestIndex];
                 if (std::abs(r1.hit_device_len - r2.hit_device_len) >
                     CACHE_THRESHOLD) {
                   return r1.hit_device_len > r2.hit_device_len;
@@ -429,10 +430,10 @@ std::vector<int> scheduling_grouping(
             });
 
   for (MapConstIterator it : group_iters) {
-    const GroupInfo& group_info = it->second;
-    const std::vector<int>& indices = group_info.indices;
+    const GroupInfo &group_info = it->second;
+    const std::vector<int> &indices = group_info.indices;
     const int earliest_req_idx = group_info.earliestIndex;
-    const Request& leading_req = request_list[earliest_req_idx];
+    const Request &leading_req = request_list[earliest_req_idx];
 
     // If the leading request has a pending hit, postpone the group
     if (leading_req.pending_hit_len > CACHE_THRESHOLD) {
@@ -453,15 +454,15 @@ std::vector<int> scheduling_grouping(
   return reordered_indices;
 }
 
-std::vector<int> scheduling_balance(
-    std::vector<Request>& request_list,
-    std::unordered_map<std::string, GroupInfo>& prefixMap) {
+std::vector<int>
+scheduling_balance(std::vector<Request> &request_list,
+                   std::unordered_map<std::string, GroupInfo> &prefixMap) {
   std::vector<int> reordered_indices;
   reordered_indices.reserve(request_list.size());
-  std::vector<GroupInfo*> group_ptrs;
+  std::vector<GroupInfo *> group_ptrs;
   group_ptrs.reserve(prefixMap.size());
 
-  for (auto& [_, group] : prefixMap) {
+  for (auto &[_, group] : prefixMap) {
     // if (group.indices.size() > 1) {
     //   Request& lead = request_list[group.earliestIndex];
     //   const std::size_t cached_len = lead.length - lead.to_compute_len;
@@ -471,25 +472,27 @@ std::vector<int> scheduling_balance(
   }
 
   std::sort(group_ptrs.begin(), group_ptrs.end(),
-            [&request_list](const GroupInfo* g1_ptr, const GroupInfo* g2_ptr) {
+            [&request_list](const GroupInfo *g1_ptr, const GroupInfo *g2_ptr) {
               const size_t size1 = g1_ptr->indices.size();
               const size_t size2 = g2_ptr->indices.size();
               if (size1 != size2) {
-                return size1 > size2;  // larger group first
+                return size1 > size2; // larger group first
               }
 
-              const Request& r1 = request_list[g1_ptr->earliestIndex];
-              const Request& r2 = request_list[g2_ptr->earliestIndex];
+              const Request &r1 = request_list[g1_ptr->earliestIndex];
+              const Request &r2 = request_list[g2_ptr->earliestIndex];
 
               const int hit_diff = r1.hit_device_len - r2.hit_device_len;
-              if (std::abs(hit_diff) > CACHE_THRESHOLD) return hit_diff > 0;
+              if (std::abs(hit_diff) > CACHE_THRESHOLD)
+                return hit_diff > 0;
 
               return r1.hit_host_len / static_cast<double>(r1.to_compute_len) >
                      r2.hit_host_len / static_cast<double>(r2.to_compute_len);
 
               const int cache_diff = (r1.length - r1.to_compute_len) -
                                      (r2.length - r2.to_compute_len);
-              if (std::abs(cache_diff) > CACHE_THRESHOLD) return cache_diff > 0;
+              if (std::abs(cache_diff) > CACHE_THRESHOLD)
+                return cache_diff > 0;
 
               // tie-break: earliest index ascending
               return g1_ptr->earliestIndex < g2_ptr->earliestIndex;
@@ -501,8 +504,8 @@ std::vector<int> scheduling_balance(
 
   int group_idx = 0;
   while (group_idx < group_ptrs.size()) {
-    const GroupInfo* group_info = group_ptrs[group_idx];
-    Request& leading_req = request_list[group_info->earliestIndex];
+    const GroupInfo *group_info = group_ptrs[group_idx];
+    Request &leading_req = request_list[group_info->earliestIndex];
 
     // If the leading request has a pending hit, postpone the group
     if (leading_req.pending_hit_len > CACHE_THRESHOLD) {
@@ -525,7 +528,7 @@ std::vector<int> scheduling_balance(
 
     if (sum_load / sum_compute > load_compute_ratio) {
       // If the load is too high, pick from the end
-      Request& comp_req = request_list[group_ptrs.back()->earliestIndex];
+      Request &comp_req = request_list[group_ptrs.back()->earliestIndex];
       if (comp_req.index != leading_req.index) {
         group_ptrs.pop_back();
         if (comp_req.pending_hit_len > CACHE_THRESHOLD) {
@@ -546,8 +549,8 @@ std::vector<int> scheduling_balance(
   return reordered_indices;
 }
 
-std::vector<int> HiRadixCache::scheduling(
-    std::vector<std::vector<int>> requests) {
+std::vector<int>
+HiRadixCache::scheduling(std::vector<std::vector<int>> requests) {
   std::vector<Request> request_list;
   request_list.reserve(requests.size());
 
@@ -562,7 +565,7 @@ std::vector<int> HiRadixCache::scheduling(
                             hit_device_len, hit_host_len, to_compute_len,
                             pending_hit_len, prefix_key});
 
-    auto& groupInfo = prefixMap[prefix_key];
+    auto &groupInfo = prefixMap[prefix_key];
     groupInfo.indices.push_back(i);
     // If this is the first insertion, record the earliest index
     if (groupInfo.indices.size() == 1) {
@@ -580,8 +583,9 @@ std::vector<int> HiRadixCache::scheduling(
 // -----------------------------------------------------------------------------
 // Main grouping function
 // -----------------------------------------------------------------------------
-std::vector<std::vector<int>> groupRequests(
-    const std::vector<std::vector<int>>& requests, int threshold = 100) {
+std::vector<std::vector<int>>
+groupRequests(const std::vector<std::vector<int>> &requests,
+              int threshold = 100) {
   // Data structure to hold information about each prefix group
   struct GroupInfo {
     std::vector<int> indices;
@@ -596,7 +600,7 @@ std::vector<std::vector<int>> groupRequests(
   for (int i = 0; i < static_cast<int>(requests.size()); ++i) {
     std::string key = buildPrefixKey(requests[i], threshold);
 
-    auto& groupInfo = prefixMap[key];
+    auto &groupInfo = prefixMap[key];
     groupInfo.indices.push_back(i);
 
     // If this is the first insertion, record the earliest index
@@ -610,7 +614,7 @@ std::vector<std::vector<int>> groupRequests(
   std::vector<std::tuple<std::string, std::vector<int>, int>> groups;
   groups.reserve(prefixMap.size());
 
-  for (auto& kv : prefixMap) {
+  for (auto &kv : prefixMap) {
     groups.emplace_back(kv.first, std::move(kv.second.indices),
                         kv.second.earliestIndex);
   }
@@ -618,14 +622,14 @@ std::vector<std::vector<int>> groupRequests(
   // 3. Sort the groups:
   //    (a) By size of the group (descending).
   //    (b) Tie-break by earliest index (ascending).
-  std::sort(groups.begin(), groups.end(), [](auto& g1, auto& g2) {
-    const auto& indices1 = std::get<1>(g1);
-    const auto& indices2 = std::get<1>(g2);
+  std::sort(groups.begin(), groups.end(), [](auto &g1, auto &g2) {
+    const auto &indices1 = std::get<1>(g1);
+    const auto &indices2 = std::get<1>(g2);
     const size_t size1 = indices1.size();
     const size_t size2 = indices2.size();
 
     if (size1 != size2) {
-      return size1 > size2;  // larger group first
+      return size1 > size2; // larger group first
     }
     // tie-break: earliest index ascending
     return std::get<2>(g1) < std::get<2>(g2);
@@ -634,7 +638,7 @@ std::vector<std::vector<int>> groupRequests(
   // 4. Build the final result: each group is just the vector of indices
   std::vector<std::vector<int>> result;
   result.reserve(groups.size());
-  for (auto& group : groups) {
+  for (auto &group : groups) {
     // std::get<1>(group) is the vector of indices
     result.push_back(std::move(std::get<1>(group)));
   }
@@ -647,8 +651,8 @@ std::vector<std::vector<int>> groupRequests(
 // of integers, along with an optional threshold, and return a list of lists of
 // ints.
 // -----------------------------------------------------------------------------
-std::vector<std::vector<int>> group_requests_py(
-    std::vector<std::vector<int>> requests, int threshold = 100) {
+std::vector<std::vector<int>>
+group_requests_py(std::vector<std::vector<int>> requests, int threshold = 100) {
   return groupRequests(requests, threshold);
 }
 
@@ -661,7 +665,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
   // Expose the HiRadixCache class to Python
   py::class_<HiRadixCache>(m, "HiRadixCache_CPP")
-      .def(py::init<NodeId>(), py::arg("root_node_id") = 0)  // Constructor
+      .def(py::init<NodeId>(), py::arg("root_node_id") = 0) // Constructor
       .def("reset", &HiRadixCache::reset,
            py::call_guard<py::gil_scoped_release>(),
            "Resets the cache to an empty state with only the root node.")
@@ -677,7 +681,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .def("delete_node", &HiRadixCache::delete_node, py::arg("node_id"),
            py::call_guard<py::gil_scoped_release>(),
            "Deletes a leaf node by ID (throws error if not leaf, returns true "
-           "on success).")  // Updated docstring
+           "on success).") // Updated docstring
       .def("insert_node", &HiRadixCache::insert_node, py::arg("node_id"),
            py::arg("key_segment"), py::arg("parent_id"),
            py::call_guard<py::gil_scoped_release>(),

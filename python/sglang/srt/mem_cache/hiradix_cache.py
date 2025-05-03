@@ -4,8 +4,8 @@ import threading
 import time
 from typing import List, Optional
 
-import torch
 import hiradix_schedule_utils
+import torch
 
 from sglang.srt.managers.cache_controller import HiCacheController
 from sglang.srt.mem_cache.memory_pool import (
