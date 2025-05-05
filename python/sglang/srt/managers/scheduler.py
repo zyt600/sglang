@@ -1192,17 +1192,20 @@ class Scheduler(
                     self.running_batch.merge_batch(self.last_batch)
 
         if self.pending_batch is not None:
-            if self.pending_batch.check_hicache_quarter_done():
-                ret = self.pending_batch
-                self.pending_batch = None
-            else:
-                self.running_batch = self.update_running_batch(self.running_batch)
-                if self.running_batch.is_empty():
-                    ret = self.pending_batch
-                    self.pending_batch = None
-                else:
-                    # overlap KV cache loading with more decode batches
-                    ret = self.running_batch
+            ret = self.pending_batch
+            self.pending_batch = None
+            # not compatible with TP
+            # if self.pending_batch.check_hicache_quarter_done():
+            #     ret = self.pending_batch
+            #     self.pending_batch = None
+            # else:
+            #     self.running_batch = self.update_running_batch(self.running_batch)
+            #     if self.running_batch.is_empty():
+            #         ret = self.pending_batch
+            #         self.pending_batch = None
+            #     else:
+            #         # overlap KV cache loading with more decode batches
+            #         ret = self.running_batch
         else:
             new_batch = self.get_new_batch_prefill()
             if new_batch is None:
