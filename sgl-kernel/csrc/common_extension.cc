@@ -156,11 +156,11 @@ TORCH_LIBRARY_FRAGMENT(sgl_kernel, m) {
       "expert_offsets) -> ()");
   m.impl("fp8_blockwise_scaled_grouped_mm", torch::kCUDA, &fp8_blockwise_scaled_grouped_mm);
   m.def(
-    "moe_permute(Tensor input, Tensor topk_ids, Tensor token_expert_indicies, Tensor? expert_map, int n_expert, int n_local_expert, int topk, std::optional<int64_t> align_block_size, Tensor& permuted_input, Tensor& expert_first_token_offset, Tensor& inv_permuted_idx, Tensor& permuted_idx, Tensor& m_indices) -> ()");
+    "moe_permute(Tensor input, Tensor topk_ids, Tensor token_expert_indicies, Tensor? expert_map, int n_expert, int n_local_expert, int topk, int align_block_size, Tensor permuted_input, Tensor expert_first_token_offset, Tensor inv_permuted_idx, Tensor permuted_idx, Tensor m_indices) -> ()");
   m.impl("moe_permute", torch::kCUDA, &moe_permute);
 
   m.def(
-    "moe_unpermute(Tensor permuted_hidden_states, Tensor topk_weights, Tensor inv_permuted_idx, Tensor expert_first_token_offset, int topk, Tensor& hidden_states) -> ()");
+    "moe_unpermute(Tensor permuted_hidden_states, Tensor topk_weights, Tensor inv_permuted_idx, Tensor expert_first_token_offset, int topk, Tensor hidden_states) -> ()");
   m.impl("moe_unpermute", torch::kCUDA, &moe_unpermute);
 
   /*

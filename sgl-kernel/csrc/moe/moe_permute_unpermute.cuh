@@ -2,14 +2,17 @@
 // Co-authoed with https://github.com/CalebDu
 #pragma once
 
+#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAGuard.h>
 #include <c10/core/ScalarType.h>
 #include <torch/all.h>
-#include "dispatch.h"
+#include "moe_dispatch.h"
 #include <cub/cub.cuh>
 #include <cub/device/device_radix_sort.cuh>
 #include <cub/util_type.cuh>
 #include "cutlass/numeric_size.h"
 #include "cutlass/array.h"
+
 
 template <typename T>
 inline T* get_ptr(torch::Tensor& t) {

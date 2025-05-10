@@ -95,62 +95,12 @@ def fp8_blockwise_scaled_grouped_mm(
 
 
 def moe_permute(
-    input,
-    topk_ids,
-    token_expert_indicies,
-    expert_map,
-    n_expert,
-    n_local_expert,
-    topk,
-    align_block_size,
-    permuted_input,
-    expert_first_token_offset,
-    inv_permuted_idx,
-    permuted_idx,
-    m_indices,
-):
-    torch.ops.sgl_kernel.moe_permute.default(
-        input,
-        topk_ids,
-        token_expert_indicies,
-        expert_map,
-        n_expert,
-        n_local_expert,
-        topk,
-        align_block_size,
-        permuted_input,
-        expert_first_token_offset,
-        inv_permuted_idx,
-        permuted_idx,
-        m_indices,
-    )
-
-
-def moe_unpermute(
-    permuted_hidden_states,
-    topk_weights,
-    inv_permuted_idx,
-    expert_first_token_offset,
-    topk,
-    hidden_states,
-):
-    torch.ops.sgl_kernel.moe_unpermute.default(
-        permuted_hidden_states,
-        topk_weights,
-        inv_permuted_idx,
-        expert_first_token_offset,
-        topk,
-        hidden_states,
-    )
-
-
-def moe_permute(
     hidden_states: torch.Tensor,
     topk_ids: torch.Tensor,
     topk: int,
     n_expert: int,
     expert_map: Optional[torch.Tensor] = None,
-    align_block_size: Optional[int] = None,
+    align_block_size: int = -1,
     fill_invalid_expert: int = -1
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
            torch.Tensor]:
@@ -216,7 +166,7 @@ def moe_permute(
     inv_permuted_idx = torch.empty((n_token, topk),
                                    dtype=torch.int32,
                                    device=hidden_states.device)
-    torch.ops._moe_C.moe_permute(hidden_states, topk_ids, token_expert_indices,
+    torch.ops.sgl_kernel.moe_permute.default(hidden_states, topk_ids, token_expert_indices,
                                  expert_map, n_expert, n_local_expert, topk,
                                  align_block_size, permuted_hidden_states,
                                  expert_first_token_offset, inv_permuted_idx,
@@ -253,7 +203,7 @@ def moe_unpermute(
                                 dtype=permuted_hidden_states.dtype,
                                 device=permuted_hidden_states.device)
 
-    torch.ops._moe_C.moe_unpermute(permuted_hidden_states, topk_weights,
+    torch.ops.sgl_kernel.moe_unpermute.default(permuted_hidden_states, topk_weights,
                                    inv_permuted_idx, expert_first_token_offset,
                                    topk, hidden_states)
     return hidden_states

@@ -80,12 +80,11 @@ def fused_topk(
         token_expert_indicies,
         gating_output.float(),
     )
-    del token_expert_indicies
 
     if renormalize:
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
 
-    return topk_weights, topk_ids
+    return topk_weights, topk_ids, token_expert_indicies
 
 
 # This is used by the Deepseek V2/V3/R1 series models

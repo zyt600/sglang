@@ -1,8 +1,7 @@
 // Modified from https://github.com/NVIDIA/TensorRT-LLM
 // Co-authoed with https://github.com/CalebDu
 
-#include "moe_dispatch.h"
-#include "moe_permute_unpermute_kernel.cuh"
+#include "moe_permute_unpermute.cuh"
 
 // CubKeyValueSorter definition begin
 CubKeyValueSorter::CubKeyValueSorter()
@@ -231,17 +230,17 @@ void getMIndices(int64_t* expert_first_token_offset,
 
 
 void moe_permute(
-    const torch::Tensor& input,                      // [n_token, hidden]
-    const torch::Tensor& topk_ids,                   // [n_token, topk]
-    const torch::Tensor& token_expert_indicies,      // [n_token, topk]
-    const std::optional<torch::Tensor>& expert_map,  // [n_expert]
+    const torch::Tensor input,                      // [n_token, hidden]
+    const torch::Tensor topk_ids,                   // [n_token, topk]
+    const torch::Tensor token_expert_indicies,      // [n_token, topk]
+    const std::optional<torch::Tensor> expert_map,  // [n_expert]
     int64_t n_expert, int64_t n_local_expert, int64_t topk,
-    const std::optional<int64_t>& align_block_size,
-    torch::Tensor& permuted_input,             // [permuted_size, hidden]
-    torch::Tensor& expert_first_token_offset,  // [n_local_expert + 1]
-    torch::Tensor& inv_permuted_idx,           // [n_token, topk]
-    torch::Tensor& permuted_idx,               // [permute_size]
-    torch::Tensor& m_indices) {                // [align_expand_m]
+    int64_t align_block_size,
+    torch::Tensor permuted_input,             // [permuted_size, hidden]
+    torch::Tensor expert_first_token_offset,  // [n_local_expert + 1]
+    torch::Tensor inv_permuted_idx,           // [n_token, topk]
+    torch::Tensor permuted_idx,               // [permute_size]
+    torch::Tensor m_indices) {                // [align_expand_m]
   TORCH_CHECK(expert_first_token_offset.scalar_type() == at::ScalarType::Long,
               "expert_first_token_offset must be int64");
   TORCH_CHECK(topk_ids.scalar_type() == at::ScalarType::Int,
@@ -256,9 +255,8 @@ void moe_permute(
               "token_expert_indicies shape must be same as inv_permuted_idx");
   auto n_token = input.sizes()[0];
   auto n_hidden = input.sizes()[1];
-  auto align_block_size_value =
-      align_block_size.has_value() ? align_block_size.value() : -1;
-  auto stream = at::cuda::getCurrentCUDAStream().stream();
+  auto align_block_size_value = align_block_size;
+  const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
   const long sorter_size =
       CubKeyValueSorter::getWorkspaceSize(n_token * topk, n_expert);
   auto sort_workspace = torch::empty(
@@ -311,26 +309,24 @@ void moe_permute(
               get_ptr<int64_t>(align_expert_first_token_offset),
               get_ptr<int>(m_indices), n_local_expert, align_block_size_value,
               stream);
-  if (align_block_size.has_value()) {
-    // update align_expert_first_token_offset
-    expert_first_token_offset.copy_(align_expert_first_token_offset);
-  }
+  // update align_expert_first_token_offset
+  expert_first_token_offset.copy_(align_expert_first_token_offset);
 }
 
 void moe_unpermute(
-    const torch::Tensor& permuted_hidden_states,     // [n_token * topk, hidden]
-    const torch::Tensor& topk_weights,               //[n_token, topk]
-    const torch::Tensor& inv_permuted_idx,           // [n_token, topk]
-    const torch::Tensor& expert_first_token_offset,  // [n_local_expert+1]
+    const torch::Tensor permuted_hidden_states,     // [n_token * topk, hidden]
+    const torch::Tensor topk_weights,               //[n_token, topk]
+    const torch::Tensor inv_permuted_idx,           // [n_token, topk]
+    const torch::Tensor expert_first_token_offset,  // [n_local_expert+1]
     int64_t topk,
-    torch::Tensor& hidden_states  // [n_token, hidden]
+    torch::Tensor hidden_states  // [n_token, hidden]
 ) {
   TORCH_CHECK(
       permuted_hidden_states.scalar_type() == hidden_states.scalar_type(),
       "permuted_hidden_states dtype must be same as hidden_states");
   auto n_token = hidden_states.size(0);
   auto n_hidden = hidden_states.size(1);
-  auto stream = at::cuda::getCurrentCUDAStream().stream();
+  const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
   int n_local_expert = expert_first_token_offset.size(0) - 1;
   const int64_t* valid_ptr =
       get_ptr<int64_t>(expert_first_token_offset) + n_local_expert;

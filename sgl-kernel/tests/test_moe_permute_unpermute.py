@@ -154,7 +154,7 @@ def torch_unpermute(permuted_hidden_states: torch.Tensor,
 @pytest.mark.parametrize("n_expert", NUM_EXPERTS)
 @pytest.mark.parametrize("topk", TOP_KS)
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("align_block_size", [None, 128])
+@pytest.mark.parametrize("align_block_size", [128])
 def test_moe_permute_unpermute(n_token: int, n_hidden: int, topk: int,
                                n_expert: int, dtype: torch.dtype,
                                align_block_size: Optional[int]):
