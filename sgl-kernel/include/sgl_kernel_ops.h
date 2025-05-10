@@ -223,6 +223,27 @@ void fp8_blockwise_scaled_grouped_mm(
     const torch::Tensor& problem_sizes,
     const torch::Tensor& expert_offsets);
 
+void moe_permute(
+    const torch::Tensor& input,                      // [n_token, hidden]
+    const torch::Tensor& topk_ids,                   // [n_token, topk]
+    const torch::Tensor& token_expert_indicies,      // [n_token, topk]
+    const std::optional<torch::Tensor>& expert_map,  // [n_expert]
+    int64_t n_expert, int64_t n_local_expert, int64_t topk,
+    const std::optional<int64_t>& align_block_size,
+    torch::Tensor& permuted_input,             // [permuted_size, hidden]
+    torch::Tensor& expert_first_token_offset,  // [n_local_expert + 1]
+    torch::Tensor& inv_permuted_idx,           // [n_token, topk]
+    torch::Tensor& permuted_idx,               // [permute_size]
+    torch::Tensor& m_indices);                // [align_expand_m]
+
+void moe_unpermute(
+    const torch::Tensor& permuted_hidden_states,     // [n_token * topk, hidden]
+    const torch::Tensor& topk_weights,               //[n_token, topk]
+    const torch::Tensor& inv_permuted_idx,           // [n_token, topk]
+    const torch::Tensor& expert_first_token_offset,  // [n_local_expert+1]
+    int64_t topk,
+    torch::Tensor& hidden_states);  // [n_token, hidden]
+
 /*
  * From csrc/speculative
  */
