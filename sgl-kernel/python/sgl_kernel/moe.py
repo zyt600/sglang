@@ -354,7 +354,7 @@ def deep_gemm_moe_fp8(
     """
     # Lazy import to avoid CUDA initialization problems.
     import deep_gemm as dg
-    from sglang.srt.layers.quantization.deepgemm import grouped_gemm_nt_f8f8bf16_contig
+    from sglang.srt.layers.quantization.deep_gemm import grouped_gemm_nt_f8f8bf16_contig
 
     assert expert_map is None, "Expert maps not supported yet"
 

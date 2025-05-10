@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: Apache-2.0
+import os
+os.environ["SGL_ENABLE_JIT_DEEPGEMM"] = "0"
 
 import itertools
 
@@ -8,9 +9,6 @@ import torch
 from sglang.srt.layers.activation import SiluAndMul
 from sgl_kernel import deep_gemm_moe_fp8
 from sglang.srt.layers.moe.topk import fused_topk
-from sglang.srt.layers.moe.fused_moe_triton.fused_moe import (
-    moe_align_block_size)
-from sglang.srt.layers.quantization.fp8_kernel import per_token_group_quant_fp8
 
 dg_available = False
 try:
@@ -39,6 +37,7 @@ TOP_KS = [1, 2, 6]
 OUT_DTYPES = [torch.bfloat16]  # [torch.float32, torch.half, torch.bfloat16]
 SEEDS = [0]
 
+silu = SiluAndMul()
 
 def native_per_token_group_quant_fp8(x,
                                      group_size,
@@ -147,7 +146,7 @@ def torch_w8a8_block_fp8_moe(a, w1, w2, w1_s, w2_s, score, topk, block_shape):
                                                  w1_s[i],
                                                  block_shape,
                                                  output_dtype=a.dtype)
-            act_out = SiluAndMul().forward_native(inter_out)
+            act_out = silu(inter_out)
             act_out_q, act_out_s = native_per_token_group_quant_fp8(
                 act_out, block_k)
             act_out = act_out.to(torch.float32)
@@ -164,11 +163,9 @@ def torch_w8a8_block_fp8_moe(a, w1, w2, w1_s, w2_s, score, topk, block_shape):
 # Skip all tests if CUDA is not available
 pytest.importorskip("torch.cuda")
 
-
 @pytest.fixture(autouse=True)
 def setup_cuda():
     torch.set_default_device("cuda")
-
 
 def per_block_cast_to_fp8(
         x: torch.Tensor,
@@ -187,78 +184,6 @@ def per_block_cast_to_fp8(
     x_scaled_sub = x_scaled.view_as(x_padded)[:m, :n].contiguous()
     scales = (x_amax / 448.0).view(x_view.size(0), x_view.size(2))
     return x_scaled_sub, scales
-
-
-def fp8_perm(m, idx):
-    if torch.is_floating_point(m) and torch.finfo(m.dtype).bits == 8:
-        return m.view(dtype=torch.uint8)[idx, ...].view(dtype=m.dtype)
-    else:
-        return m[idx, ...]
-
-
-def _moe_permute(a, a_s, topk_ids, num_groups, topk, block_m):
-    M, K = a.shape
-
-    sorted_token_ids, m_indices, num_pad = moe_align_block_size(
-        topk_ids, block_m, num_groups, None, pad_sorted_ids=True)
-
-    num_tokens = topk * M
-
-    sorted_token_ids_clamp = sorted_token_ids.clamp(max=num_tokens - 1)
-    m_indices = torch.repeat_interleave(m_indices, block_m, dim=0)
-    inv_perm = torch.argsort(sorted_token_ids)[:M * topk]
-
-    a = fp8_perm(a, sorted_token_ids_clamp // topk)
-    if a_s is not None:
-        a_s = a_s[sorted_token_ids_clamp // topk]
-
-    return a, a_s, m_indices, inv_perm
-
-
-def _moe_unpermute(out, inv_perm, topk, K, topk_weight):
-    M = topk_weight.shape[0]
-    out = out[inv_perm, ...]
-    tmp_out = out.view(-1, topk, K)
-    return (tmp_out * topk_weight.view(M, -1, 1).to(out.dtype)).sum(dim=1)
-
-
-def deep_gemm_w8a8_block_fp8_moe(M, K, a, w1, w2, w1_s, w2_s, score, topk,
-                                 block_shape):
-    """Fused moe with block-wise quantization using DeepGemm grouped gemm."""
-    num_groups = w1.shape[0]
-    M, K = a.shape
-    N = w2.shape[-1]
-
-    topk_weight, topk_ids, token_expert_indices = fused_topk(
-        a, score.float(), topk, False)
-
-    block_m = deep_gemm.get_m_alignment_for_contiguous_layout()
-
-    _, block_k = block_shape[0], block_shape[1]
-
-    a_q, a_s = per_token_group_quant_fp8(a, block_m)
-
-    a_q, a_s, m_indices, inv_perm = _moe_permute(a_q, a_s, topk_ids,
-                                                 num_groups, topk, block_m)
-
-    inter_out = torch.zeros((a_q.shape[0], N * 2),
-                            dtype=torch.bfloat16,
-                            device=a.device)
-
-    deep_gemm.m_grouped_gemm_fp8_fp8_bf16_nt_contiguous((a_q, a_s), (w1, w1_s),
-                                                        inter_out, m_indices)
-
-    act_out = SiluAndMul().forward_native(inter_out)
-    act_out_q, act_out_s = per_token_group_quant_fp8(act_out, block_k)
-
-    out = torch.zeros(a_q.shape[0], K, dtype=torch.bfloat16, device=a.device)
-
-    deep_gemm.m_grouped_gemm_fp8_fp8_bf16_nt_contiguous(
-        (act_out_q, act_out_s), (w2, w2_s), out, m_indices)
-
-    final_out = _moe_unpermute(out, inv_perm, topk, K, topk_weight)
-
-    return final_out
 
 
 @pytest.mark.parametrize(
@@ -314,11 +239,7 @@ def test_w8a8_block_fp8_deep_gemm_fused_moe(M, N, K, E, topk, seed):
         w2[i], w2_s[i] = per_block_cast_to_fp8(w2_bf16[i])
 
 
-    if M >= 128:
-        ref_out = deep_gemm_w8a8_block_fp8_moe(M, K, a, w1, w2, w1_s, w2_s,
-                                                score, topk, block_size)
-    else:
-        ref_out = torch_w8a8_block_fp8_moe(a, w1, w2, w1_s, w2_s, score,
+    ref_out = torch_w8a8_block_fp8_moe(a, w1, w2, w1_s, w2_s, score,
                                             topk, block_size)
 
     topk_weights, topk_ids, token_expert_indices = fused_topk(
