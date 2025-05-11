@@ -304,7 +304,7 @@ def select_experts(
             renormalize=renormalize,
         )
     elif custom_routing_function is None:
-        topk_weights, topk_ids = fused_topk(
+        topk_weights, topk_ids, token_expert_indicies = fused_topk(
             hidden_states=hidden_states,
             gating_output=router_logits,
             topk=top_k,
