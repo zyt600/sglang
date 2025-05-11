@@ -83,7 +83,7 @@ class HiRadixCache(RadixCache):
     def reset(self):
         TreeNode.reset_counter()
         self.root_node = TreeNode()
-        self.tree_cpp.reset()
+        self.tree_cpp.reset(self.page_size)
         self.root_node.key = []
         self.root_node.value = []
         self.root_node.lock_ref = 1

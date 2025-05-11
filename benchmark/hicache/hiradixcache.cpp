@@ -42,10 +42,31 @@ TreeNode *HiRadixCache::find_node_by_id(NodeId node_id) const {
   return (it != node_id_map_.end()) ? it->second : nullptr;
 }
 
+std::size_t hash_vector_int(const std::vector<int> &vec, int page_size) {
+  // adhoc hashing to distinguish the pages
+  std::size_t seed = 0;  // Initial seed (could use vec.size() or another value)
+  std::hash<int> hasher; // Hasher for individual integers
+
+  // The magic constant (derived from the golden ratio, used in Boost)
+  // Helps in distributing hash values better.
+  constexpr std::size_t magic_constant = 0x9e3779b9;
+
+  for (int i = 0; i < page_size; ++i) {
+    // Combine the hash of the current element with the accumulated seed
+    seed ^= hasher(vec[i]) + magic_constant + (seed << 6) + (seed >> 2);
+  }
+
+  return seed;
+}
+
 // --- Private Helper: Get Child Key ---
 int HiRadixCache::get_child_key(const std::vector<int> &key) const {
   if (key.empty()) {
     throw std::runtime_error("Cannot get child key from empty key segment");
+  }
+  if (page_size_ > 1) {
+    // If page size is greater than 1, use the hash of the key
+    return static_cast<int>(hash_vector_int(key, page_size_));
   }
   return key[0]; // Use first element as the map key
 }
@@ -63,13 +84,14 @@ size_t HiRadixCache::key_match(const std::vector<int> &node_key,
 
 // --- Public Method Implementations ---
 
-void HiRadixCache::reset() {
+void HiRadixCache::reset(int page_size) {
   NodeId root_id = root_node_ ? root_node_->id : 0;
   node_id_map_.clear();
   root_node_.reset(); // Release old tree
   // Recreate root node
   root_node_ = std::make_shared<TreeNode>(root_id, std::vector<int>{}, nullptr);
   node_id_map_[root_node_->id] = root_node_.get();
+  page_size_ = page_size;
 }
 
 bool HiRadixCache::backup_node(NodeId node_id) {
@@ -389,6 +411,18 @@ std::vector<int> scheduling_glpm(const std::vector<Request> &request_list) {
   return reordered_indices;
 }
 
+std::vector<int> scheduling_delay(const std::vector<Request> &request_list) {
+  std::vector<int> reordered_indices;
+  for (int i = 0; i < static_cast<int>(request_list.size()); ++i) {
+    const Request &r = request_list[i];
+    if (r.pending_hit_len > CACHE_THRESHOLD) {
+      continue;
+    }
+    reordered_indices.push_back(i);
+  }
+  return reordered_indices;
+}
+
 std::vector<int>
 scheduling_grouping(const std::vector<Request> &request_list,
                     std::unordered_map<std::string, GroupInfo> &prefixMap) {
@@ -576,6 +610,7 @@ HiRadixCache::scheduling(std::vector<std::vector<int>> requests) {
 
   // return scheduling_lpm(request_list);
   // return scheduling_glpm(request_list);
+  // return scheduling_delay(request_list);
   return scheduling_grouping(request_list, prefixMap);
   // return scheduling_balance(request_list, prefixMap);
 }
@@ -666,7 +701,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   // Expose the HiRadixCache class to Python
   py::class_<HiRadixCache>(m, "HiRadixCache_CPP")
       .def(py::init<NodeId>(), py::arg("root_node_id") = 0) // Constructor
-      .def("reset", &HiRadixCache::reset,
+      .def("reset", &HiRadixCache::reset, py::arg("page_size"),
            py::call_guard<py::gil_scoped_release>(),
            "Resets the cache to an empty state with only the root node.")
       .def("backup_node", &HiRadixCache::backup_node, py::arg("node_id"),

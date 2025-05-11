@@ -42,7 +42,7 @@ public:
   ~HiRadixCache() = default; // Default destructor is okay with shared_ptr
 
   // --- Public Methods (Commands from Python) ---
-  void reset();
+  void reset(int page_size);
   bool backup_node(NodeId node_id);
   bool evict_node(NodeId node_id);
   bool load_node(NodeId node_id);
@@ -62,6 +62,7 @@ public:
                                               bool lock_only) const;
 
 private:
+  int page_size_ = 1;
   // --- Private Data Members ---
   std::shared_ptr<TreeNode> root_node_;
   // Map for efficient Node ID -> Node Pointer lookup
