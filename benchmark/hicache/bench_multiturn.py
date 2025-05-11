@@ -205,7 +205,7 @@ class ReadyQueue:
     Thread-safe queue that can pop requests in different orders based on given policy.
     """
 
-    def __init__(self, init_requests=None, policy="random"):
+    def __init__(self, init_requests=None, policy="fifo"):
         self.lock = threading.Lock()
         self.requests = init_requests or []
         self.policy = policy
