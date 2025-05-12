@@ -26,6 +26,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from transformers.configuration_utils import PretrainedConfig
+from sglang.srt.model_executor.forward_batch_info import ForwardMode
 
 from sglang.srt.distributed import (
     get_tensor_model_parallel_rank,
@@ -53,7 +54,8 @@ from sglang.srt.layers.linear import (
     RowParallelLinear,
 )
 from sglang.srt.layers.logits_processor import LogitsProcessor, LogitsProcessorOutput
-from sglang.srt.layers.moe.ep_moe.layer import EPMoE
+from sglang.srt.layers.moe.ep_moe.layer import DeepEPMoE, EPMoE
+from sglang.srt.layers.moe.ep_moe.token_dispatcher import DeepEPDispatcher
 from sglang.srt.layers.moe.fused_moe_triton import FusedMoE
 from sglang.srt.layers.moe.topk import select_experts
 from sglang.srt.layers.quantization.base_config import QuantizationConfig
@@ -68,7 +70,7 @@ from sglang.srt.model_executor.forward_batch_info import ForwardBatch
 from sglang.srt.model_loader.weight_utils import default_weight_loader
 from sglang.srt.models.qwen2_moe import Qwen2MoeMLP as Qwen3MoeMLP
 from sglang.srt.models.qwen2_moe import Qwen2MoeModel
-from sglang.srt.utils import add_prefix
+from sglang.srt.utils import add_prefix, DeepEPMode
 
 Qwen3MoeConfig = None
 
