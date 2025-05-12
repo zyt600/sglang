@@ -41,9 +41,9 @@ from sglang.srt.layers.dp_attention import (
     attn_tp_reduce_scatter,
     dp_gather_partial,
     dp_scatter,
-    get_attention_dp_size,
     get_attention_tp_rank,
     get_attention_tp_size,
+    get_local_attention_dp_size,
 )
 from sglang.srt.layers.layernorm import RMSNorm
 from sglang.srt.layers.linear import (
@@ -386,7 +386,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
 
         self.attn_tp_size = get_attention_tp_size()
         self.attn_tp_rank = get_attention_tp_rank()
-        self.dp_size = get_attention_dp_size()
+        self.local_dp_size = get_local_attention_dp_size()
 
         self.info = self._compute_info(config, layer_id=layer_id)
         previous_layer_info = self._compute_info(config, layer_id=layer_id - 1)
@@ -478,7 +478,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
                 forward_batch=forward_batch,
             )
         # Gather
-        if get_tensor_model_parallel_world_size() > 1 and self.dp_size != 1:
+        if get_tensor_model_parallel_world_size() > 1 and self.local_dp_size != 1:
             if self.attn_tp_rank == 0:
                 hidden_states += residual
             hidden_states, local_hidden_states = (
@@ -498,7 +498,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
 
         # TODO: use reduce-scatter in MLP to avoid this scatter
         # Scatter
-        if self.dp_size != 1:
+        if self.local_dp_size != 1:
             # important: forward batch.gathered_buffer is used both after scatter and after gather.
             # be careful about this!
             hidden_states, global_hidden_states = (
