@@ -37,13 +37,13 @@ from sglang.srt.distributed import (
 )
 from sglang.srt.layers.activation import SiluAndMul
 from sglang.srt.layers.dp_attention import (
+    attn_tp_all_gather,
+    attn_tp_reduce_scatter,
     dp_gather_partial,
     dp_scatter,
     get_attention_dp_size,
     get_attention_tp_rank,
     get_attention_tp_size,
-    tp_all_gather,
-    tp_reduce_scatter,
 )
 from sglang.srt.layers.layernorm import RMSNorm
 from sglang.srt.layers.linear import (
@@ -530,7 +530,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
                 forward_batch.gathered_buffer[: forward_batch.input_ids.shape[0]],
                 hidden_states,
             )
-            tp_all_gather(
+            attn_tp_all_gather(
                 list(hidden_states.tensor_split(self.attn_tp_size)), local_hidden_states
             )
 
@@ -545,7 +545,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
             if self.input_is_scattered:
                 tensor_list = list(hidden_states.tensor_split(self.attn_tp_size))
                 hidden_states = tensor_list[self.attn_tp_rank]
-                tp_reduce_scatter(hidden_states, tensor_list)
+                attn_tp_reduce_scatter(hidden_states, tensor_list)
                 if hidden_states.shape[0] != 0:
                     hidden_states, residual = self.post_attention_layernorm(
                         hidden_states, residual
@@ -555,7 +555,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
                     hidden_states += residual
                 tensor_list = list(hidden_states.tensor_split(self.attn_tp_size))
                 hidden_states = tensor_list[self.attn_tp_rank]
-                tp_reduce_scatter(hidden_states, tensor_list)
+                attn_tp_reduce_scatter(hidden_states, tensor_list)
                 residual = hidden_states
                 if hidden_states.shape[0] != 0:
                     hidden_states = self.post_attention_layernorm(hidden_states)
@@ -579,7 +579,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
                 forward_batch.gathered_buffer[: forward_batch.input_ids.shape[0]],
                 hidden_states,
             )
-            tp_all_gather(
+            attn_tp_all_gather(
                 list(hidden_states.tensor_split(self.attn_tp_size)), local_hidden_states
             )
 
@@ -622,6 +622,7 @@ class Qwen3MoeForCausalLM(nn.Module):
             config.hidden_size,
             quant_config=quant_config,
             prefix=add_prefix("lm_head", prefix),
+            use_attn_tp_group=global_server_args_dict["enable_dp_attention"],
         )
         self.logits_processor = LogitsProcessor(config)
 
