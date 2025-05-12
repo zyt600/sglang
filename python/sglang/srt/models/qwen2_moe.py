@@ -345,6 +345,7 @@ class Qwen2MoeModel(nn.Module):
         self.embed_tokens = VocabParallelEmbedding(
             config.vocab_size,
             config.hidden_size,
+            enable_tp=not global_server_args_dict["enable_dp_attention"],
             prefix=add_prefix("embed_tokens", prefix),
         )
         # Use the provided decoder layer type or default to Qwen2MoeDecoderLayer
@@ -379,7 +380,11 @@ class Qwen2MoeModel(nn.Module):
             hidden_states, residual = layer(
                 positions, hidden_states, forward_batch, residual
             )
-        hidden_states, _ = self.norm(hidden_states, residual)
+        if not forward_batch.forward_mode.is_idle():
+            if residual is None:
+                hidden_states = self.norm(hidden_states)
+            else:
+                hidden_states, _ = self.norm(hidden_states, residual)
         return hidden_states
 
 

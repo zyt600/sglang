@@ -66,7 +66,7 @@ from sglang.srt.layers.vocab_parallel_embedding import (
     VocabParallelEmbedding,
 )
 from sglang.srt.managers.schedule_batch import global_server_args_dict
-from sglang.srt.model_executor.forward_batch_info import ForwardBatch
+from sglang.srt.model_executor.forward_batch_info import ForwardBatch, ForwardMode
 from sglang.srt.model_loader.weight_utils import default_weight_loader
 from sglang.srt.models.qwen2_moe import Qwen2MoeMLP as Qwen3MoeMLP
 from sglang.srt.models.qwen2_moe import Qwen2MoeModel
@@ -393,7 +393,8 @@ class Qwen3MoeDecoderLayer(nn.Module):
         self.info = self._compute_info(config, layer_id=layer_id)
         previous_layer_info = self._compute_info(config, layer_id=layer_id - 1)
         self.input_is_scattered = (
-            previous_layer_info.ffn_input_mode == _FFNInputMode.SCATTERED
+            layer_id > 0
+            and previous_layer_info.ffn_input_mode == _FFNInputMode.SCATTERED
         )
         self.is_last_layer = self.layer_id == config.num_hidden_layers - 1
 
