@@ -43,6 +43,7 @@ public:
 
   // --- Public Methods (Commands from Python) ---
   void reset(int page_size);
+  void reset_node(NodeId node_id);
   bool backup_node(NodeId node_id);
   bool evict_node(NodeId node_id);
   bool load_node(NodeId node_id);

@@ -64,6 +64,15 @@ class RuntimeEndpoint(BaseBackend):
         )
         self._assert_success(res)
 
+    def flush_cache_gpu_only(self):
+        res = http_request(
+            self.base_url + "/flush_cache_gpu_only",
+            api_key=self.api_key,
+            verify=self.verify,
+            method="POST",
+        )
+        self._assert_success(res)
+
     def get_server_info(self):
         res = http_request(
             self.base_url + "/get_server_info",

@@ -81,10 +81,12 @@ if __name__ == "__main__":
     args.num_rounds = 1
     args.max_parallel = 128
     flush_cache_url = f"http://{args.host}:{args.port}/flush_cache"
+    flush_cache_gpu_only_url = f"http://{args.host}:{args.port}/flush_cache_gpu_only"
 
-    for request_rate in [24, 16, 12, 8, 4, 2, 1]:
+    requests.post(flush_cache_url)
+    for request_rate in [32, 24, 16, 12, 8, 4, 2, 1]:
         args.request_rate = request_rate
-        requests.post(flush_cache_url)
+        requests.post(flush_cache_gpu_only_url)
         time.sleep(1)
         performance_data = ContextWorkloadGenerator(args).run()
         log_to_jsonl_file(performance_data, "context_benchmark.jsonl", args.tag)

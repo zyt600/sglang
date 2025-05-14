@@ -62,6 +62,7 @@ from sglang.srt.managers.io_struct import (
     EmbeddingReqInput,
     ExpertDistributionReq,
     ExpertDistributionReqOutput,
+    FlushCacheGPUOnlyReq,
     FlushCacheReq,
     GenerateReqInput,
     GetInternalStateReq,
@@ -616,6 +617,10 @@ class TokenizerManager:
 
     def flush_cache(self):
         req = FlushCacheReq()
+        self.send_to_scheduler.send_pyobj(req)
+
+    def flush_cache_gpu_only(self):
+        req = FlushCacheGPUOnlyReq()
         self.send_to_scheduler.send_pyobj(req)
 
     def abort_request(self, rid: str):

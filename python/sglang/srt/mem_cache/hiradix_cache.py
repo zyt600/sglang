@@ -93,6 +93,33 @@ class HiRadixCache(RadixCache):
         self.token_to_kv_pool_host.clear()
         self.load_cache_event.clear()
 
+    def reset_gpu_only(self):
+        # reset the GPU cache only
+        stack = [self.root_node]
+        nodes_to_delete = []
+        while stack:
+            cur_node = stack.pop()
+            if cur_node.evicted:
+                assert cur_node.backuped
+                continue
+            cur_node.lock_ref = 0
+            if cur_node != self.root_node:
+                cur_node.value = None
+                if not cur_node.backuped:
+                    nodes_to_delete.append(cur_node)
+                else:
+                    self.tree_cpp.reset_node(cur_node.id)
+            for child in cur_node.children.values():
+                stack.append(child)
+        for node in nodes_to_delete[::-1]:
+            self._delete_leaf(node)
+            self.tree_cpp.delete_node(node.id)
+
+        self.evictable_size_ = 0
+        self.protected_size_ = 0
+        self.cache_controller.reset()
+        self.load_cache_event.clear()
+
     def get_height(self, node: TreeNode):
         height = 0
         while node != self.root_node:

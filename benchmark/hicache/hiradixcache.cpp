@@ -94,6 +94,17 @@ void HiRadixCache::reset(int page_size) {
   page_size_ = page_size;
 }
 
+void HiRadixCache::reset_node(NodeId node_id) {
+  TreeNode *node = find_node_by_id(node_id);
+  if (!node) {
+    throw std::runtime_error("Node ID not found in the cache. Node ID: " +
+                             std::to_string(node_id));
+  }
+  node->evicted = true;
+  node->ref_count = 0;
+  node->pending_requests.clear();
+}
+
 bool HiRadixCache::backup_node(NodeId node_id) {
   TreeNode *node = find_node_by_id(node_id);
   if (!node) {
@@ -704,6 +715,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .def("reset", &HiRadixCache::reset, py::arg("page_size"),
            py::call_guard<py::gil_scoped_release>(),
            "Resets the cache to an empty state with only the root node.")
+      .def("reset_node", &HiRadixCache::reset_node, py::arg("node_id"),
+           py::call_guard<py::gil_scoped_release>(),
+           "Resets a node to its initial state (not evicted, no pending "
+           "requests).")
       .def("backup_node", &HiRadixCache::backup_node, py::arg("node_id"),
            py::call_guard<py::gil_scoped_release>(),
            "Marks a node as backuped (returns true on success).")

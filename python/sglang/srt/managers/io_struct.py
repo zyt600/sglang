@@ -520,6 +520,11 @@ class FlushCacheReq:
 
 
 @dataclass
+class FlushCacheGPUOnlyReq:
+    pass
+
+
+@dataclass
 class UpdateWeightFromDiskReqInput:
     # The model path with the new weights
     model_path: str

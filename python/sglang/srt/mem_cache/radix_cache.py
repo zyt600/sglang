@@ -417,7 +417,7 @@ class RadixCache(BasePrefixCache):
                 " " * current_indent,
                 len(current_node.key),
                 current_node.key[:10],
-                f"r={current_node.lock_ref}",
+                f"r={current_node.lock_ref},{current_node.id=},{current_node.evicted=},{current_node.backuped=}",
             )
             for key, child in current_node.children.items():
                 stack.append((child, current_indent + 2))

@@ -318,6 +318,17 @@ async def flush_cache():
     )
 
 
+@app.api_route("/flush_cache_gpu_only", methods=["GET", "POST"])
+async def flush_cache():
+    """Flush the radix cache, GPU entry only."""
+    _global_state.tokenizer_manager.flush_cache_gpu_only()
+    return Response(
+        content="Cache flushed.\nPlease check backend logs for more details. "
+        "(When there are running or waiting requests, the operation will not be performed.)\n",
+        status_code=200,
+    )
+
+
 @app.api_route("/start_profile", methods=["GET", "POST"])
 async def start_profile_async(obj: Optional[ProfileReqInput] = None):
     """Start profiling."""

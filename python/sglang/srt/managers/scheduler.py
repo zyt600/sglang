@@ -60,6 +60,7 @@ from sglang.srt.managers.io_struct import (
     CloseSessionReqInput,
     ExpertDistributionReq,
     ExpertDistributionReqOutput,
+    FlushCacheGPUOnlyReq,
     FlushCacheReq,
     GetInternalStateReq,
     GetInternalStateReqOutput,
@@ -394,6 +395,7 @@ class Scheduler(
                 (TokenizedGenerateReqInput, self.handle_generate_request),
                 (TokenizedEmbeddingReqInput, self.handle_embedding_request),
                 (FlushCacheReq, self.flush_cache_wrapped),
+                (FlushCacheGPUOnlyReq, self.flush_cache_gpu_only_wrapped),
                 (AbortReq, self.abort_request),
                 (OpenSessionReqInput, self.open_session),
                 (CloseSessionReqInput, self.close_session),
@@ -1695,6 +1697,9 @@ class Scheduler(
     def flush_cache_wrapped(self, recv_req: FlushCacheReq):
         self.flush_cache()
 
+    def flush_cache_gpu_only_wrapped(self, recv_req: FlushCacheGPUOnlyReq):
+        self.flush_cache_gpu_only()
+
     def flush_cache(self):
         """Flush the memory pool and cache."""
         if len(self.waiting_queue) == 0 and self.running_batch.is_empty():
@@ -1720,6 +1725,42 @@ class Scheduler(
             self.cum_prefill_tokens = 0
             torch.cuda.empty_cache()
             logger.info("Cache flushed successfully!")
+            if_success = True
+        else:
+            logging.warning(
+                f"Cache not flushed because there are pending requests. "
+                f"#queue-req: {len(self.waiting_queue)}, "
+                f"#running-req: {len(self.running_batch.reqs)}"
+            )
+            if_success = False
+        return if_success
+
+    def flush_cache_gpu_only(self):
+        """Flush the memory pool and cache."""
+        if len(self.waiting_queue) == 0 and self.running_batch.is_empty():
+            self.cur_batch = None
+            self.last_batch = None
+            assert isinstance(self.tree_cache, HiRadixCache)
+            self.tree_cache.reset_gpu_only()
+            if self.grammar_backend:
+                self.grammar_backend.reset()
+            self.req_to_token_pool.clear()
+            self.token_to_kv_pool_allocator.clear()
+
+            if not self.spec_algorithm.is_none():
+                self.draft_worker.model_runner.req_to_token_pool.clear()
+                self.draft_worker.model_runner.token_to_kv_pool_allocator.clear()
+
+            self.num_generated_tokens = 0
+            self.forward_ct_decode = 0
+            self.spec_num_total_accepted_tokens = 0
+            self.spec_num_total_forward_ct = 0
+            self.cum_spec_accept_length = 0
+            self.cum_spec_accept_count = 0
+            self.cum_cache_hit_tokens = 0
+            self.cum_prefill_tokens = 0
+            torch.cuda.empty_cache()
+            logger.info("GPU cache flushed successfully!")
             if_success = True
         else:
             logging.warning(

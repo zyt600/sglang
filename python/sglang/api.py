@@ -60,6 +60,17 @@ def flush_cache(backend: Optional[BaseBackend] = None):
     return backend.flush_cache()
 
 
+def flush_cache_gpu_only(backend: Optional[BaseBackend] = None):
+    backend = backend or global_config.default_backend
+    if backend is None:
+        return False
+
+    # If backend is Runtime
+    if hasattr(backend, "endpoint"):
+        backend = backend.endpoint
+    return backend.flush_cache_gpu_only()
+
+
 def get_server_info(backend: Optional[BaseBackend] = None):
     backend = backend or global_config.default_backend
     if backend is None:
