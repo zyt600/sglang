@@ -484,7 +484,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
         # Gather
         if get_tensor_model_parallel_world_size() > 1:
             # all gather and all reduce
-            if self.dp_size != 1:
+            if self.local_dp_size != 1:
                 if self.attn_tp_rank == 0:
                     hidden_states += residual
                 hidden_states, local_hidden_states = (
