@@ -21,43 +21,43 @@ from sglang.test.test_utils import (
 
 MODEL_SCORE_THRESHOLDS = {
     "meta-llama/Llama-3.1-8B-Instruct": 0.82,
-    "mistralai/Mistral-7B-Instruct-v0.3": 0.56,
+    "mistralai/Mistral-7B-Instruct-v0.3": 0.58,
     "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct": 0.85,
     "meta-llama/Llama-3.1-70B-Instruct": 0.95,
-    "mistralai/Mixtral-8x7B-Instruct-v0.1": 0.62,
+    "mistralai/Mixtral-8x7B-Instruct-v0.1": 0.64,
     "Qwen/Qwen2-57B-A14B-Instruct": 0.86,
-    "neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8": 0.81,
+    "neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8": 0.82,
     "neuralmagic/Mistral-7B-Instruct-v0.3-FP8": 0.54,
-    "neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8": 0.93,
-    "neuralmagic/Qwen2-72B-Instruct-FP8": 0.93,
-    "neuralmagic/Qwen2-57B-A14B-Instruct-FP8": 0.82,
+    "neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8": 0.94,
+    "neuralmagic/Qwen2-72B-Instruct-FP8": 0.94,
+    "neuralmagic/Qwen2-57B-A14B-Instruct-FP8": 0.86,
+    "neuralmagic/Mixtral-8x7B-Instruct-v0.1-FP8": 0.61,
+    "google/gemma-2-27b-it": 0.91,
 }
 
-# Models currently failing on AMD MI300x.
-failing_models = {
-    "google/gemma-2-27b-it",
+# Models with safetensor weights specifically quantized for Nvidia FP8 type (torch.float8_e4m3fn)
+nv_quantized_models = {
     "neuralmagic/DeepSeek-Coder-V2-Lite-Instruct-FP8",
     "neuralmagic/gemma-2-2b-it-FP8",
-    "neuralmagic/Mixtral-8x7B-Instruct-v0.1-FP8",
 }
 
 
-def remove_failing_models(model_str):
+def remove_nv_quantized_models(model_str):
     models = model_str.split(",")
-    filtered = [m for m in models if m not in failing_models]
+    filtered = [m for m in models if m not in nv_quantized_models]
     return ",".join(filtered)
 
 
-DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_TP1 = remove_failing_models(
+DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_TP1 = remove_nv_quantized_models(
     DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_TP1
 )
-DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_TP2 = remove_failing_models(
+DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_TP2 = remove_nv_quantized_models(
     DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_TP2
 )
-DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_FP8_TP1 = remove_failing_models(
+DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_FP8_TP1 = remove_nv_quantized_models(
     DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_FP8_TP1
 )
-DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_FP8_TP2 = remove_failing_models(
+DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_FP8_TP2 = remove_nv_quantized_models(
     DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_FP8_TP2
 )
 
