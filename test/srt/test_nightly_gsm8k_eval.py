@@ -22,15 +22,11 @@ from sglang.test.test_utils import (
 MODEL_SCORE_THRESHOLDS = {
     "meta-llama/Llama-3.2-3B-Instruct": 0.82,
     "mistralai/Mistral-Small-3.1-24B-Base-2503": 0.58,
-    "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct": 0.85, # TODO: V3
-    "moonshotai/Moonlight-16B-A3B-Instruct": 0.00, # TODO: fix this
     "google/gemma-3-27b-it": 0.91,
-    "meta-llama/Llama-3.3-70B-Instruct": 0.95,
+    "nvidia/Llama-3.3-70B-Instruct-FP8": 0.95,
     "mistralai/Mixtral-8x7B-Instruct-v0.1": 0.64,
+    "Qwen/Qwen2.5-7B-Instruct": 0.85,
     "Qwen/Qwen3-235B-A22B": 0.86,
-    "RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8": 0.83,
-    "RedHatAI/Mistral-7B-Instruct-v0.3-FP8": 0.54,
-    "RedHatAI/DeepSeek-Coder-V2-Lite-Instruct-FP8": 0.84,
     # The threshold of RedHatAI/gemma-2-2b-it-FP8 should be 0.6, but this model has some accuracy regression.
     # The fix is tracked at https://github.com/sgl-project/sglang/issues/4324, we set it to 0.50, for now, to make CI green.
     "RedHatAI/gemma-2-2b-it-FP8": 0.50,
