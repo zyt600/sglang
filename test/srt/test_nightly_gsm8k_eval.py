@@ -25,7 +25,7 @@ MODEL_SCORE_THRESHOLDS = {
     "google/gemma-3-27b-it": 0.91,
     "nvidia/Llama-3.3-70B-Instruct-FP8": 0.95,
     "mistralai/Mixtral-8x7B-Instruct-v0.1": 0.64,
-    "Qwen/Qwen2.5-7B-Instruct": 0.85,
+    "Qwen/Qwen2.5-7B-Instruct": 0.91,
     "Qwen/Qwen3-235B-A22B": 0.86,
     # The threshold of RedHatAI/gemma-2-2b-it-FP8 should be 0.6, but this model has some accuracy regression.
     # The fix is tracked at https://github.com/sgl-project/sglang/issues/4324, we set it to 0.50, for now, to make CI green.
