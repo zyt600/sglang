@@ -36,8 +36,22 @@ def parse_models(model_string):
     return [model.strip() for model in model_string.split(",") if model.strip()]
 
 
-def load_livecodebench():
-    ds = load_dataset("ise-uiuc/LiveCodeBench", split="test")
+def load_livecodebench(
+        version_tag: str = "release_v5",  # 最新完整数据 (May 2023  Jan 2025)
+        split: str = "test",
+        lite: bool = True                 # True → code_generation_lite；False → code_generation
+):
+    repo = (
+        "livecodebench/code_generation_lite"
+        if lite else
+        "livecodebench/code_generation"
+    )
+    ds = load_dataset(
+        repo,
+        version_tag=version_tag,
+        split=split,
+        trust_remote_code=True            # ⭐ 必须，否则会被安全沙箱拦截
+    )
     return ds
 
 
