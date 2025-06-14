@@ -19,12 +19,14 @@ from sglang.test.test_utils import (
 
 MODEL_SCORE_THRESHOLDS = {
     "Qwen/QwQ-32B": 0.533,
+    "Qwen/Qwen3-235B-A22B": 0.815,
     "XiaomiMiMo/MiMo-7B-SFT": 0.4,
     "deepseek-ai/DeepSeek-V3-0324": 0.875,
 }
 
 DEFAULT_MODELS = [
     "Qwen/QwQ-32B",
+    "Qwen/Qwen3-235B-A22B",
     "XiaomiMiMo/MiMo-7B-SFT",
     "deepseek-ai/DeepSeek-V3-0324",
 ]

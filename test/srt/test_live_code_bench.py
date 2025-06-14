@@ -17,11 +17,13 @@ from sglang.test.test_utils import (
 
 MODEL_SCORE_THRESHOLDS = {
     "Qwen/Qwen2.5-Coder-32B-Instruct": 0.314,
+    "Qwen/Qwen3-235B-A22B": 0.659,
     "deepseek-ai/DeepSeek-V3-0324": 0.492,
 }
 
 DEFAULT_MODELS = [
     "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "Qwen/Qwen3-235B-A22B",
     "deepseek-ai/DeepSeek-V3-0324",
 ]
 
