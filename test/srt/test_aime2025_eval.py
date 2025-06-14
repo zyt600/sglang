@@ -5,6 +5,7 @@ import warnings
 from datetime import datetime
 from types import SimpleNamespace
 from datasets import load_dataset
+import subprocess
 
 import sglang as sgl
 from sglang.srt.utils import kill_process_tree
@@ -17,13 +18,15 @@ from sglang.test.test_utils import (
 )
 
 MODEL_SCORE_THRESHOLDS = {
-    "Qwen/QwQ-32B": 0.4, # in practice, 0.533
+    "Qwen/QwQ-32B": 0.533,
     "XiaomiMiMo/MiMo-7B-SFT": 0.4,
+    "deepseek-ai/DeepSeek-V3-0324": 0.875,
 }
 
 DEFAULT_MODELS = [
     "Qwen/QwQ-32B",
     "XiaomiMiMo/MiMo-7B-SFT",
+    "deepseek-ai/DeepSeek-V3-0324",
 ]
 
 DEFAULT_SCORE_TYPE = "pass@1"  # pass@1, pass@k, mean
@@ -77,10 +80,21 @@ def score_mean(preds, gold):
 
 def popen_launch_server_wrapper(base_url, model, tp_size=2):
     other_args = ["--log-level-http", "warning", "--trust-remote-code"]
+    
+    if "deepseek" in model.lower():
+        other_args = ["--model", model, "--tp", "8", "--trust-remote-code", "--port", "30000"]
+        process = subprocess.Popen(
+            ["python3", "-m", "sglang.launch_server"] + other_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return process
+        
     if tp_size > 1:
         other_args.extend(["--tp", str(tp_size)])
     
-    other_args.extend(["--download-dir", "/home/ytzhou/.cache/huggingface/hub"])
+    other_args.extend(["--download-dir", "/xxx"])
 
     print("before popen_launch_server")
     process = popen_launch_server(

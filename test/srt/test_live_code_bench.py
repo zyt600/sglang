@@ -16,13 +16,13 @@ from sglang.test.test_utils import (
 )
 
 MODEL_SCORE_THRESHOLDS = {
-    "Qwen/QwQ-32B": 0.4,
-    "XiaomiMiMo/MiMo-7B-SFT": 0.4,
+    "Qwen/Qwen2.5-Coder-32B-Instruct": 0.314,
+    "deepseek-ai/DeepSeek-V3-0324": 0.492,
 }
 
 DEFAULT_MODELS = [
-    "Qwen/QwQ-32B",
-    "XiaomiMiMo/MiMo-7B-SFT",
+    "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "deepseek-ai/DeepSeek-V3-0324",
 ]
 
 DEFAULT_SCORE_TYPE = "pass@1"
@@ -37,9 +37,9 @@ def parse_models(model_string):
 
 
 def load_livecodebench(
-        version_tag: str = "release_v5",  # 最新完整数据 (May 2023  Jan 2025)
+        version_tag: str = "release_v5", 
         split: str = "test",
-        lite: bool = True                 # True → code_generation_lite；False → code_generation
+        lite: bool = True
 ):
     repo = (
         "livecodebench/code_generation_lite"
@@ -50,7 +50,7 @@ def load_livecodebench(
         repo,
         version_tag=version_tag,
         split=split,
-        trust_remote_code=True            # ⭐ 必须，否则会被安全沙箱拦截
+        trust_remote_code=True
     )
     return ds
 
